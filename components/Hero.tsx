@@ -75,7 +75,7 @@ export const Hero: React.FC = () => {
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </a>
             <a 
-               href="#contact"
+               href="https://drive.google.com/file/d/1g_BfEvK83Hlc1Lct1kZE9HLYVove_6R6/view?usp=sharing"
                className="w-full sm:w-auto px-8 py-4 rounded-xl border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition-all flex items-center justify-center gap-2 backdrop-blur-sm shadow-sm dark:shadow-none"
             >
               <Download size={18} />
