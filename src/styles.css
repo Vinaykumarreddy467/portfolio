@@ -122,12 +122,12 @@ ul, ol { padding: 0; list-style: none; }
 
 /* Reveal */
 [data-reveal] { opacity: 0; transform: translateY(28px); transition: opacity 1.1s var(--ease), transform 1.1s var(--ease); transition-delay: var(--d, 0s); }
-[data-reveal].in { opacity: 1; transform: none; }
+[data-reveal][data-in] { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { [data-reveal] { opacity: 1; transform: none; transition: none; } }
 
 .mask { display: block; overflow: hidden; padding-bottom: 0.06em; margin-bottom: -0.06em; }
 .mask > span { display: inline-block; transform: translateY(110%); transition: transform 1.3s var(--ease); transition-delay: var(--d, 0s); }
-.ready .mask > span, .mask.in > span { transform: none; }
+.ready .mask > span, .mask[data-in] > span { transform: none; }
 @media (prefers-reduced-motion: reduce) { .mask > span { transform: none; transition: none; } }
 
 /* Citation chips */

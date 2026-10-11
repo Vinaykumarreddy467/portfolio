@@ -6,7 +6,10 @@ export const reducedMotion = () =>
 export const finePointer = () =>
   typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-/** Adds `.in` to every [data-reveal] / .mask[data-mask] element as it scrolls into view. */
+/**
+ * Marks every [data-reveal] / [data-mask] element with a `data-in` attribute as it scrolls into view.
+ * An attribute (not a class) so React re-renders that rewrite `className` can't undo the reveal.
+ */
 export function useRevealAll(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
@@ -15,12 +18,12 @@ export function useRevealAll(enabled: boolean) {
       (entries) => {
         for (const e of entries) {
           if (e.isIntersecting) {
-            e.target.classList.add('in');
+            e.target.setAttribute('data-in', '');
             io.unobserve(e.target);
           }
         }
       },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+      { rootMargin: '0px 0px -6% 0px', threshold: 0 },
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
