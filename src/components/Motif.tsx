@@ -141,7 +141,7 @@ function Pipeline() {
           <text x={30} y={120 + i * 18} className="m-txt">{c}</text>
         </g>
       ))}
-      <text x="306" y="208" textAnchor="end" className="m-txt">groq ⇢ gemini ⇢ ollama</text>
+      <text x="306" y="208" textAnchor="end" className="m-txt">auto: ollama ⇢ groq ⇢ gemini</text>
     </>
   );
 }
