@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MutableRefObject, type PointerEvent, type RefObject } from 'react';
-import { modelTex, pose } from '../data';
+import { modelTex, pose, type Pose } from '../data';
 import { reducedMotion } from '../hooks';
 
-/** Four facings from three photos: the three-quarter shot, mirrored, covers the other side. */
+/** The 2D fallback's four facings, each its own turnaround shot. */
 export type Facing = 'front' | 'right' | 'back' | 'left';
-const RING: Facing[] = ['front', 'right', 'back', 'left'];
-const DEG: Record<Facing, number> = { front: 0, right: 40, back: 180, left: 320 };
+const DEG: Record<Facing, number> = { front: 0, right: 45, back: 180, left: 315 };
+const SHOT: Record<Facing, Pose> = { front: 't000', right: 't045', back: 't180', left: 't315' };
 
-const srcFor = (tee: string, f: Facing) => pose(tee, f === 'right' || f === 'left' ? 'angle' : f);
+const RING = Object.keys(DEG) as Facing[];
+const srcFor = (tee: string, f: Facing) => pose(tee, SHOT[f]);
 
 export function preloadTee(tee: string) {
   return Promise.all(
-    [...(['front', 'angle', 'back'] as const).map((p) => pose(tee, p)), modelTex(tee, 'front'), modelTex(tee, 'back')].map((src) => {
+    [...RING.map((f) => srcFor(tee, f)), modelTex(tee)].map((src) => {
       const img = new Image();
       img.src = src;
       return img.decode().catch(() => undefined);
@@ -19,7 +20,7 @@ export function preloadTee(tee: string) {
   );
 }
 
-const REST = [0, 45, 135, 180, 225, 315]; // never come to rest side-on
+const REST = [0, 45, 90, 135, 180, 225, 270, 315]; // every 45°: each one is a real photo
 const norm = (a: number) => ((a % 360) + 360) % 360;
 const delta = (a: number, b: number) => ((b - a + 540) % 360) - 180; // signed shortest a → b
 const easeIO = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
