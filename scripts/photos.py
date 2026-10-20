@@ -56,16 +56,18 @@ def blobs(mask, keep):
 
 def tee_mask(rgba):
     h, sat, mx, al = hue_sat(rgba)
-    red = ndimage.binary_closing(((h < 16) | (h > 335)) & (sat > 0.5) & (mx > 0.12) & (al > 0.5), iterations=2)
+    # true red only: warm skin sits just past it (hue ~10-17 against the tee's ~-3)
+    red = ndimage.binary_closing(((h < 8) | (h > 335)) & (sat > 0.5) & (mx > 0.12) & (al > 0.5), iterations=2)
     lab, n = ndimage.label(red)
     if not n:
         return red
     sizes = ndimage.sum(red, lab, range(1, n + 1))
-    tee_top = np.where(lab == int(np.argmax(sizes)) + 1)[0].min()
+    rows = np.where(lab == int(np.argmax(sizes)) + 1)[0]
     cy = ndimage.center_of_mass(red, lab, range(1, n + 1))
-    # The tee, plus tee showing below its top edge (behind a hand). Lips and ears sit above it.
+    # The tee, plus tee showing within its height (behind a hand). Lips and ears sit above it, and
+    # hands hanging below the hem can be warm enough to pass for red.
     red = np.isin(lab, [i + 1 for i, v in enumerate(sizes)
-                        if v > 0.04 * sizes.max() or (v > 0.003 * sizes.max() and cy[i][0] > tee_top + 10)])
+                        if v > 0.04 * sizes.max() or (v > 0.003 * sizes.max() and rows.min() + 10 < cy[i][0] < rows.max())])
     # Shadowed folds: darker and less saturated, but still true red, and next to the tee.
     loose = ((h < 9) | (h > 338)) & (sat > 0.28) & (mx > 0.05) & (al > 0.3) & ndimage.binary_dilation(red, iterations=14)
     red = ndimage.binary_fill_holes(ndimage.binary_closing(red | loose, iterations=2))
@@ -75,13 +77,17 @@ def tee_mask(rgba):
 
 
 def dye(rgba, target):
-    """Recolours the tee, keeping the photo's shading (luminance relative to the tee's median)."""
+    """Recolours the tee, keeping the photo's shading (brightness relative to the tee's median)."""
     m = tee_mask(rgba)
+    h, sat, mx, _ = hue_sat(rgba)
+    # Edges and slivers the mask's opening drops (and colour carried past a cut-out's outline): still
+    # red, right next to the tee. Left undyed they show as red seams on the new colour.
+    m |= ((h < 9) | (h > 336)) & (sat > 0.3) & (mx > 0.05) & ndimage.binary_dilation(m, iterations=8)
     soft = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7))).astype(np.float32)[..., None] / 255
     a = np.asarray(rgba).astype(np.float32)
-    lum = a[..., :3] @ np.array([0.299, 0.587, 0.114])
-    shade = (lum / (np.median(lum[m]) if m.any() else 1))[..., None]
-    a[..., :3] = a[..., :3] * (1 - soft) + np.clip(np.array(target, np.float32) * shade ** 1.1, 0, 255) * soft
+    # the folds live in the red channel (the brightest one); luminance mostly averages them away
+    shade = (mx / (np.median(mx[m]) if m.any() else 1))[..., None]
+    a[..., :3] = a[..., :3] * (1 - soft) + np.clip(np.array(target, np.float32) * shade ** 1.25, 0, 255) * soft
     return Image.fromarray(a.astype(np.uint8), 'RGBA')
 
 
