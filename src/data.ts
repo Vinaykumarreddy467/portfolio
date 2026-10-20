@@ -40,6 +40,10 @@ export const TEES: Tee[] = [
 export type Pose = 'front' | 'angle' | 'back' | 'portrait' | 'profile';
 export const pose = (tee: string, p: Pose) => asset(`img/${tee}/${p}.webp`);
 
+/** 3D model: full-body textures per tee (back already mirrored into model space) and packed 16-bit z-maps. */
+export const modelTex = (tee: string, side: 'front' | 'back') => asset(`model/${tee}/${side}.webp`);
+export const zmap = (side: 'front' | 'back') => asset(`model/z-${side}.png`);
+
 export type Frame = { id: Pose; code: string; label: string; deg?: string; alt: string };
 
 export const FRAMES: Frame[] = [

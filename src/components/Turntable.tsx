@@ -1,112 +1,177 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { pose } from '../data';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MutableRefObject, type PointerEvent, type RefObject } from 'react';
+import { modelTex, pose } from '../data';
 import { reducedMotion } from '../hooks';
 
 /** Four facings from three photos: the three-quarter shot, mirrored, covers the other side. */
 export type Facing = 'front' | 'right' | 'back' | 'left';
 const RING: Facing[] = ['front', 'right', 'back', 'left'];
 const DEG: Record<Facing, number> = { front: 0, right: 40, back: 180, left: 320 };
-export const FACING_LABEL: Record<Facing, string> = { front: 'front', right: 'three-quarter', back: 'back', left: 'three-quarter, mirrored' };
 
 const srcFor = (tee: string, f: Facing) => pose(tee, f === 'right' || f === 'left' ? 'angle' : f);
 
 export function preloadTee(tee: string) {
   return Promise.all(
-    (['front', 'angle', 'back'] as const).map((p) => {
+    [...(['front', 'angle', 'back'] as const).map((p) => pose(tee, p)), modelTex(tee, 'front'), modelTex(tee, 'back')].map((src) => {
       const img = new Image();
-      img.src = pose(tee, p);
+      img.src = src;
       return img.decode().catch(() => undefined);
     }),
   );
 }
 
-/**
- * Turntable state: which way the figure faces, and a cumulative angle for the dial
- * (cumulative so a full spin animates 0 → 360 instead of snapping back).
- */
-export function useTurntable(autoSpin: boolean) {
-  const [facing, setFacing] = useState<Facing>('front');
-  const [deg, setDeg] = useState(0);
-  const [spinning, setSpinning] = useState(false);
-  const cur = useRef<Facing>('front');
-  const total = useRef(0);
-  const busy = useRef(false);
-  const hold = useRef(0);
-  const drag = useRef({ on: false, x: 0, acc: 0, moved: 0 });
-  const timers = useRef<number[]>([]);
+const REST = [0, 45, 135, 180, 225, 315]; // never come to rest side-on
+const norm = (a: number) => ((a % 360) + 360) % 360;
+const delta = (a: number, b: number) => ((b - a + 540) % 360) - 180; // signed shortest a → b
+const easeIO = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-  const go = useCallback((next: Facing, dir: -1 | 0 | 1 = 0) => {
-    const prev = cur.current;
-    if (prev === next) return;
-    let d = DEG[next] - DEG[prev];
-    if (dir === 1) d = ((d % 360) + 360) % 360;
-    else if (dir === -1) d = -((((-d) % 360) + 360) % 360);
-    else d = ((d + 540) % 360) - 180;
-    total.current += d;
-    cur.current = next;
-    setDeg(total.current);
-    setFacing(next);
+/** Nearest photo to an angle, for the 2D fallback. */
+const facingAt = (a: number): Facing =>
+  (Object.keys(DEG) as Facing[]).reduce((best, f) => (Math.abs(delta(a, DEG[f])) < Math.abs(delta(a, DEG[best])) ? f : best), 'front');
+
+export const angleLabel = (a: number) => {
+  const d = Math.abs(delta(0, a));
+  return d < 22.5 ? 'front' : d < 67.5 ? 'three-quarter' : d < 112.5 ? 'profile' : d < 157.5 ? 'back three-quarter' : 'back';
+};
+
+type Drive = { yaw: number; pitch: number; zoom: number; lx: number; ly: number };
+type Opts = {
+  ctl: MutableRefObject<Drive>;
+  autoSpin: boolean;
+  lookAmp: number; // how far he turns toward the pointer, in degrees
+  dial: RefObject<SVGGElement | null>;
+  readDeg: RefObject<HTMLElement | null>;
+  readLabel: RefObject<HTMLElement | null>;
+};
+
+/**
+ * Continuous turntable physics: drag with inertia, settle on a good angle, tween spins and steps,
+ * lean toward the pointer, and add the scroll scrub on top. Writes `ctl` every frame for the 3D
+ * figure and only re-renders React when the nearest photo or the at-rest state changes.
+ */
+export function useTurntable({ ctl, autoSpin, lookAmp, dial, readDeg, readLabel }: Opts) {
+  const [facing, setFacing] = useState<Facing>('front');
+  const [still, setStill] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+  const st = useRef({
+    yaw: 0, vel: 0, settle: false,
+    drag: false, x: 0, moved: 0,
+    tween: null as null | { from: number; to: number; t0: number; dur: number },
+    lx: 0, ly: 0, lookYaw: 0, pitch: 0, scroll: 0,
+    facing: 'front' as Facing, still: true, busy: false, intro: false,
+  });
+  const amp = useRef(lookAmp);
+  amp.current = lookAmp;
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const s = st.current;
+      if (s.tween) {
+        const p = Math.min(1, (now - s.tween.t0) / s.tween.dur);
+        s.yaw = s.tween.from + (s.tween.to - s.tween.from) * easeIO(p);
+        if (p >= 1) {
+          s.tween = null;
+          if (s.intro) { s.intro = false; setIntroDone(true); }
+        }
+      } else if (!s.drag) {
+        if (Math.abs(s.vel) > 0.04) { s.yaw += s.vel; s.vel *= 0.94; }
+        else if (s.settle) {
+          const r = REST.reduce((b, x) => (Math.abs(delta(s.yaw, x)) < Math.abs(delta(s.yaw, b)) ? x : b));
+          const d = delta(s.yaw, r);
+          s.yaw += d * 0.07;
+          if (Math.abs(d) < 0.05) { s.yaw += d; s.settle = false; }
+        }
+      }
+      const free = !s.drag && !s.tween;
+      s.lookYaw += ((free ? s.lx * amp.current : 0) - s.lookYaw) * 0.06;
+      s.pitch += ((free ? -s.ly * 4 : 0) - s.pitch) * 0.06;
+      const sc = easeIO(s.scroll);
+      const yaw = s.yaw + s.lookYaw + sc * 360;
+      ctl.current.yaw = yaw;
+      ctl.current.pitch = s.pitch;
+      ctl.current.zoom = sc;
+      ctl.current.lx = s.lx;
+      ctl.current.ly = s.ly;
+
+      const a = norm(yaw);
+      if (dial.current) dial.current.style.transform = `rotate(${-yaw}deg)`;
+      if (readDeg.current) readDeg.current.textContent = `${String(Math.round(a) % 360).padStart(3, '0')}°`;
+      if (readLabel.current) readLabel.current.textContent = angleLabel(a);
+
+      const f = facingAt(a);
+      if (f !== s.facing) { s.facing = f; setFacing(f); }
+      const atRest = free && Math.abs(s.vel) < 0.04 && !s.settle && Math.abs(delta(0, a)) < 9 && sc < 0.03;
+      if (atRest !== s.still) { s.still = atRest; setStill(atRest); }
+      const b = !!s.tween || s.drag;
+      if (b !== s.busy) { s.busy = b; setBusy(b); }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [ctl, dial, readDeg, readLabel]);
+
+  const tweenTo = useCallback((to: number, dur: number) => {
+    const s = st.current;
+    s.vel = 0;
+    s.settle = false;
+    s.tween = { from: s.yaw, to, t0: performance.now(), dur: reducedMotion() ? 1 : dur };
   }, []);
 
-  const step = useCallback((dir: -1 | 1) => {
-    hold.current = performance.now() + 2200; // a deliberate turn outranks pointer-looking for a moment
-    go(RING[(RING.indexOf(cur.current) + dir + 4) % 4], dir);
-  }, [go]);
-
-  /** One full revolution, easing out like a turntable winding down. */
+  /** One full revolution. */
   const spin = useCallback((dir: -1 | 1 = 1) => {
-    if (busy.current) return;
-    if (reducedMotion()) { step(dir); return; }
-    busy.current = true;
-    setSpinning(true);
-    let t = 0;
-    [120, 140, 170, 230].forEach((ms, i, all) => {
-      t += ms;
-      timers.current.push(window.setTimeout(() => {
-        step(dir);
-        if (i === all.length - 1) { busy.current = false; setSpinning(false); }
-      }, t));
-    });
-  }, [step]);
+    const s = st.current;
+    if (s.tween) return;
+    const base = s.yaw + delta(s.yaw, REST.reduce((b, x) => (Math.abs(delta(s.yaw, x)) < Math.abs(delta(s.yaw, b)) ? x : b)));
+    tweenTo(base + dir * 360, 1500);
+  }, [tweenTo]);
 
-  /** Look toward the pointer: x is the pointer's offset from the figure, in figure-widths. */
-  const look = useCallback((x: number) => {
-    if (busy.current || drag.current.on || performance.now() < hold.current) return;
-    go(x > 0.62 ? 'right' : x < -0.62 ? 'left' : 'front');
-  }, [go]);
+  /** To the next 45° mark. */
+  const step = useCallback((dir: -1 | 1) => {
+    const s = st.current;
+    const from = s.tween ? s.tween.to : s.yaw;
+    tweenTo(dir > 0 ? Math.floor(from / 45 + 1e-6) * 45 + 45 : Math.ceil(from / 45 - 1e-6) * 45 - 45, 480);
+  }, [tweenTo]);
+
+  /** Pointer position: x is the offset from the figure in figure-widths (clamped), y is -1…1 over the hero. */
+  const look = useCallback((x: number, y: number) => {
+    st.current.lx = Math.max(-1, Math.min(1, x));
+    st.current.ly = Math.max(-1, Math.min(1, y));
+  }, []);
+
+  const setScroll = useCallback((p: number) => { st.current.scroll = p; }, []);
 
   useEffect(() => {
     if (!autoSpin) return;
-    const id = window.setTimeout(() => spin(1), 900);
+    if (reducedMotion()) { setIntroDone(true); return; }
+    const id = window.setTimeout(() => { st.current.intro = true; spin(1); }, 350);
     return () => clearTimeout(id);
   }, [autoSpin, spin]);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
-
   const bind = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      drag.current = { on: true, x: e.clientX, acc: 0, moved: 0 };
+      const s = st.current;
+      s.drag = true; s.x = e.clientX; s.moved = 0; s.vel = 0; s.tween = null;
+      if (s.intro) { s.intro = false; setIntroDone(true); } // grabbed mid-intro: the intro is over
       e.currentTarget.setPointerCapture(e.pointerId);
     },
     onPointerMove: (e: PointerEvent<HTMLElement>) => {
-      const d = drag.current;
-      if (!d.on || busy.current) return;
-      const dx = e.clientX - d.x;
-      d.x = e.clientX;
-      d.acc += dx;
-      d.moved += Math.abs(dx);
-      while (Math.abs(d.acc) > 64) {
-        // dragging right turns him to his left, like spinning a real turntable
-        step(d.acc > 0 ? 1 : -1);
-        d.acc -= Math.sign(d.acc) * 64;
-      }
+      const s = st.current;
+      if (!s.drag) return;
+      const dx = e.clientX - s.x;
+      s.x = e.clientX;
+      s.moved += Math.abs(dx);
+      s.yaw += dx * 0.5;
+      s.vel = s.vel * 0.5 + dx * 0.25;
     },
     onPointerUp: () => {
-      const d = drag.current;
-      d.on = false;
-      if (d.moved < 6) spin(1);
+      const s = st.current;
+      s.drag = false;
+      s.settle = true;
+      if (reducedMotion()) s.vel = 0;
+      if (s.moved < 6) spin(1);
     },
-    onPointerCancel: () => { drag.current.on = false; },
+    onPointerCancel: () => { st.current.drag = false; st.current.settle = true; },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
       if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
@@ -114,7 +179,7 @@ export function useTurntable(autoSpin: boolean) {
     onClick: (e: { detail: number }) => { if (e.detail === 0) spin(1); }, // keyboard Enter / Space
   };
 
-  return { facing, deg, spinning, step, spin, look, bind };
+  return { facing, still, busy, introDone, spin, step, look, setScroll, bind };
 }
 
 /**

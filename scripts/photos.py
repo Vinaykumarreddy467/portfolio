@@ -1,6 +1,6 @@
 """Builds every photo the site uses from one studio contact sheet.
 
-    pip install rembg scipy pillow
+    pip install rembg scipy pillow onnxruntime
     python scripts/photos.py path/to/contact-sheet.webp
 
 The sheet is five panels (front, back, close-up, profile, three-quarter). For each one this
@@ -10,6 +10,7 @@ cuts the background out (rembg, isnet-general-use), then:
   public/img/<tee>/<pose>.webp     the cut-out with the tee re-dyed, one folder per colour
   public/img/avatar.webp, og.jpg   nav avatar and share card
   public/favicon.png
+  public/model/...                 the hero's 3D model (see model3d.py; also needs onnxruntime)
 
 front / angle / back go onto one 520x820 canvas, aligned on the cap and the neck, so the
 hero turntable and the model sheet can swap between them without the figure jumping.
@@ -21,6 +22,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from rembg import new_session, remove
 from scipy import ndimage
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import model3d  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 OUT = os.path.join(ROOT, 'public', 'img')
@@ -111,13 +115,15 @@ def main(src):
     sheet = Image.open(src).convert('RGB')
     session = new_session('isnet-general-use')
     os.makedirs(os.path.join(OUT, 'photo'), exist_ok=True)
-    base = {}
+    base, cuts = {}, {}
     for k, box in PANELS.items():
         panel = sheet.crop(box)
         panel.save(os.path.join(OUT, 'photo', f'{k}.webp'), quality=86, method=6)
-        c = cut(panel, session)
+        cuts[k] = c = cut(panel, session)
         base[k] = on_canvas(c) if k in ('front', 'angle', 'back') else trim(c)
         print('cut', k)
+
+    model3d.build(cuts['front'], cuts['back'], os.path.join(ROOT, 'public', 'model'), TEES, dye)
 
     for tee, colour in TEES.items():
         os.makedirs(os.path.join(OUT, tee), exist_ok=True)
