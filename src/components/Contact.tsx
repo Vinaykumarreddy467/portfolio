@@ -1,13 +1,15 @@
-import { PROFILE } from '../data';
+import { PROFILE, pose } from '../data';
 import { useClock } from '../hooks';
 import { ArrowUpRight, Lines } from './ui';
 
-export function Contact({ onCopy }: { onCopy: () => void }) {
+export function Contact({ onCopy, tee }: { onCopy: () => void; tee: string }) {
   const time = useClock(PROFILE.timezone);
   return (
     <section className="contact" id="contact" aria-labelledby="contact-title">
       <div className="wrap">
-        <p className="mono mute" style={{ marginBottom: 28 }}>(06) Contact · {PROFILE.openTo}</p>
+        {/* The profile shot faces left, so he's looking at the email address. */}
+        <img className="contact-fig" src={pose(tee, 'profile')} alt="" loading="lazy" data-reveal />
+        <p className="mono mute" style={{ marginBottom: 28 }}>(07) Contact · {PROFILE.openTo}</p>
         <h2 className="contact-title" id="contact-title">
           <span className="mask" data-mask><span>If your LLM needs</span></span>
           <span className="mask" data-mask><span style={{ ['--d' as string]: '0.08s' }}>to be <span className="serif">right,</span></span></span>

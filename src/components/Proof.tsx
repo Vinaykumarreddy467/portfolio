@@ -6,7 +6,7 @@ export function Proof() {
     <section className="section" id="proof" aria-labelledby="proof-title">
       <div className="wrap">
         <SectionHead
-          idx="05"
+          idx="06"
           kicker="Proof"
           lede="Hackathons shipped, certifications earned, and a lot of Bengaluru evenings spent in rooms full of people building with AI."
         >

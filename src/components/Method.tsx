@@ -57,7 +57,7 @@ export function Method() {
     <section className="section" id="method" aria-labelledby="method-title">
       <div className="wrap">
         <SectionHead
-          idx="02"
+          idx="03"
           kicker="Method"
           lede={<>Every project I ship is some remix of one loop.<Cite id="profile" sm /> If a system can't show where an answer came from, it isn't done.</>}
         >

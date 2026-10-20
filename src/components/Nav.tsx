@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { PROFILE } from '../data';
+import { PROFILE, asset } from '../data';
 import { useClock } from '../hooks';
 
 export const SECTIONS = [
   { id: 'work', label: 'Work' },
+  { id: 'about', label: 'About' },
   { id: 'method', label: 'Method' },
   { id: 'journey', label: 'Journey' },
   { id: 'toolbox', label: 'Toolbox' },
@@ -52,7 +53,7 @@ export function Nav({ theme, onTheme, onPalette }: Props) {
       <header className={`nav${scrolled ? ' scrolled' : ''}${hidden && !open ? ' hidden' : ''}`}>
         <div className="wrap nav-in">
           <a href="#top" className="brand" aria-label="Back to top" data-cursor="top">
-            <span className="brand-mark">v</span>
+            <img className="brand-mark" src={asset('img/avatar.webp')} alt="" width="38" height="38" />
             <span className="brand-txt">
               <b>{PROFILE.short}</b>
               <span>{PROFILE.role}</span>

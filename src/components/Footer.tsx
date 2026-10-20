@@ -1,6 +1,6 @@
-import { PROFILE, SOURCES } from '../data';
+import { PROFILE, SOURCES, pose } from '../data';
 
-export function Footer({ onPalette }: { onPalette: () => void }) {
+export function Footer({ onPalette, tee }: { onPalette: () => void; tee: string }) {
   return (
     <footer className="footer" id="references">
       <div className="wrap">
@@ -16,11 +16,17 @@ export function Footer({ onPalette }: { onPalette: () => void }) {
           </ol>
         </div>
 
-        <div className="giant" aria-hidden="true">Vinay <span className="serif">Reddy</span></div>
+        <div className="giant" aria-hidden="true">
+          Vinay <span className="serif">Reddy</span>
+          <span className="walk" data-reveal>
+            <img src={pose(tee, 'back')} alt="" loading="lazy" />
+            <span className="mono">That's me, back to work.</span>
+          </span>
+        </div>
 
         <div className="colophon mono mute">
           <span>© {new Date().getFullYear()} {PROFILE.name}</span>
-          <span>Inter Tight · Instrument Serif · JetBrains Mono · React + Vite</span>
+          <span>Inter Tight · Instrument Serif · JetBrains Mono · React + Vite · photos cut out and dyed by hand-written scripts</span>
           <button onClick={onPalette}>Press ⌘K / Ctrl K for anything</button>
           <a href="#top">Back to top ↑</a>
         </div>

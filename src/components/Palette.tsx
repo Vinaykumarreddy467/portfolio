@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { PROFILE, PROJECTS } from '../data';
+import { PROFILE, PROJECTS, TEES } from '../data';
 import { SECTIONS } from './Nav';
 
 type Cmd = { group: string; label: string; hint: string; run: () => void };
 
-type Props = { open: boolean; onClose: () => void; onCopy: () => void; onTheme: () => void };
+type Props = { open: boolean; onClose: () => void; onCopy: () => void; onTheme: () => void; onTee: (id: string) => void };
 
 const go = (href: string) => window.open(href, '_blank', 'noopener,noreferrer');
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
-export function Palette({ open, onClose, onCopy, onTheme }: Props) {
+export function Palette({ open, onClose, onCopy, onTheme, onTee }: Props) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -19,12 +19,13 @@ export function Palette({ open, onClose, onCopy, onTheme }: Props) {
     ...SECTIONS.map((s) => ({ group: 'Go to', label: s.label, hint: `#${s.id}`, run: () => jump(s.id) })),
     { group: 'Actions', label: 'Copy email address', hint: PROFILE.email, run: onCopy },
     { group: 'Actions', label: 'Toggle light / dark', hint: 'theme', run: onTheme },
+    ...TEES.map((t) => ({ group: 'Wardrobe', label: `Dye the tee ${t.name.toLowerCase()}`, hint: 'the site follows', run: () => onTee(t.id) })),
     { group: 'Actions', label: 'Open résumé', hint: 'google drive', run: () => go(PROFILE.resume) },
     { group: 'Elsewhere', label: 'GitHub', hint: '@Vinaykumarreddy467', run: () => go(PROFILE.github) },
     { group: 'Elsewhere', label: 'LinkedIn', hint: 'connect', run: () => go(PROFILE.linkedin) },
     { group: 'Elsewhere', label: 'LinkedIn posts', hint: 'learning in public', run: () => go(PROFILE.linkedinPosts) },
     ...PROJECTS.map((p) => ({ group: 'Projects', label: p.title, hint: 'source ↗', run: () => go(p.url) })),
-  ], [onCopy, onTheme]);
+  ], [onCopy, onTheme, onTee]);
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();

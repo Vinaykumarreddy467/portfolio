@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PROFILE } from './data';
+import { PROFILE, TEES } from './data';
 import { reducedMotion, useRevealAll } from './hooks';
+import { About } from './components/About';
 import { Archive } from './components/Archive';
 import { Contact } from './components/Contact';
 import { Cursor } from './components/Cursor';
@@ -21,7 +22,8 @@ const seenIntro = () => {
 };
 
 export default function App() {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark');
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light');
+  const [tee, setTee] = useState(() => document.documentElement.dataset.tee || 'crimson');
   const [loading, setLoading] = useState(() => !seenIntro() && !reducedMotion());
   const [ready, setReady] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -31,9 +33,15 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0a0a09' : '#efece4');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f1013' : '#f4f1ea');
     try { localStorage.setItem('vkr-theme', theme); } catch { /* storage unavailable */ }
   }, [theme]);
+
+  // The tee colour drives the accent: data-tee swaps the tokens, @property animates them.
+  useEffect(() => {
+    document.documentElement.dataset.tee = tee;
+    try { localStorage.setItem('vkr-tee', tee); } catch { /* storage unavailable */ }
+  }, [tee]);
 
   useEffect(() => {
     if (!loading) requestAnimationFrame(() => setReady(true));
@@ -80,6 +88,14 @@ export default function App() {
     }
   }, [notify]);
 
+  const teeNow = useRef(tee);
+  teeNow.current = tee;
+  const dye = useCallback((id: string) => {
+    if (teeNow.current === id) return;
+    setTee(id);
+    notify(`Tee dyed ${TEES.find((t) => t.id === id)?.name.toLowerCase()}. The site followed.`);
+  }, [notify]);
+
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), []);
 
   const finishIntro = useCallback(() => {
@@ -97,19 +113,20 @@ export default function App() {
       <Nav theme={theme} onTheme={toggleTheme} onPalette={() => setPalette(true)} />
 
       <main>
-        <Hero theme={theme} onCopy={copyEmail} />
+        <Hero tee={tee} onTee={dye} onCopy={copyEmail} ready={ready} />
         <Marquee />
         <Work />
+        <About tee={tee} />
         <Metrics />
         <Method />
         <Journey />
         <Archive />
         <Proof />
-        <Contact onCopy={copyEmail} />
+        <Contact onCopy={copyEmail} tee={tee} />
       </main>
-      <Footer onPalette={() => setPalette(true)} />
+      <Footer onPalette={() => setPalette(true)} tee={tee} />
 
-      <Palette open={palette} onClose={() => setPalette(false)} onCopy={copyEmail} onTheme={toggleTheme} />
+      <Palette open={palette} onClose={() => setPalette(false)} onCopy={copyEmail} onTheme={toggleTheme} onTee={dye} />
       <div className={`toast${toast ? ' show' : ''}`} role="status" aria-live="polite">
         <span className="dot" aria-hidden="true" />{toast}
       </div>

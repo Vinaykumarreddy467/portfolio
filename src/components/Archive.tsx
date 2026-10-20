@@ -12,7 +12,7 @@ export function Archive() {
     <section className="section" id="toolbox" aria-labelledby="toolbox-title">
       <div className="wrap">
         <SectionHead
-          idx="04"
+          idx="05"
           kicker={`Toolbox · ${ARCHIVE.length} more builds`}
           lede="MCP servers, agent experiments, document pipelines, Spring Boot systems and the ML projects where it all started."
         >

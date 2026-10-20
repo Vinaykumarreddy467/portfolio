@@ -6,7 +6,7 @@ export function Journey() {
     <section className="section" id="journey" aria-labelledby="journey-title">
       <div className="wrap">
         <SectionHead
-          idx="03"
+          idx="04"
           kicker="Journey"
           lede="From data science to accessible front ends to full-stack Java to Gen AI. Every step added a layer the next one stands on."
         >

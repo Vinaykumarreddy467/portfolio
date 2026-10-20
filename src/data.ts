@@ -21,6 +21,39 @@ export const PROFILE = {
   openTo: 'Gen AI / AI Engineer roles',
 };
 
+// ---------------------------------------------------------------------------
+// Photos. One studio contact sheet, cut out and re-dyed per tee colour.
+// ---------------------------------------------------------------------------
+
+/** Resolves a file in /public against Vite's base, so the build also works from a sub-path. */
+export const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`;
+
+export type Tee = { id: string; name: string; swatch: string };
+
+export const TEES: Tee[] = [
+  { id: 'crimson', name: 'Crimson', swatch: '#c11a2e' },
+  { id: 'cobalt', name: 'Cobalt', swatch: '#2a4bb0' },
+  { id: 'forest', name: 'Forest', swatch: '#2f6342' },
+  { id: 'marigold', name: 'Marigold', swatch: '#e6a417' },
+];
+
+export type Pose = 'front' | 'angle' | 'back' | 'portrait' | 'profile';
+export const pose = (tee: string, p: Pose) => asset(`img/${tee}/${p}.webp`);
+
+export type Frame = { id: Pose; code: string; label: string; deg?: string; alt: string };
+
+export const FRAMES: Frame[] = [
+  { id: 'front', code: 'A', label: 'Front', deg: '0°', alt: 'Vinay facing the camera, hands in pockets, in a tee, jeans, glasses and a khaki cap' },
+  { id: 'angle', code: 'B', label: 'Three-quarter', deg: '40°', alt: 'Vinay turned three-quarters, looking off to the side' },
+  { id: 'back', code: 'C', label: 'Back', deg: '180°', alt: 'Vinay seen from behind, in a tee, jeans and a khaki cap' },
+  { id: 'portrait', code: 'D', label: 'Close-up', alt: 'Close-up portrait of Vinay smiling, in glasses and a khaki cap' },
+  { id: 'profile', code: 'E', label: 'Profile', alt: 'Side profile of Vinay in glasses and a khaki cap' },
+];
+
+/** What the hero headline cycles through. Each one is backed by a project below. */
+export const ABILITIES = ['cites its sources.', 'reasons in graphs.', 'remembers context.', 'measures itself.'];
+
+
 export type Source = { id: string; label: string; url: string };
 
 export const SOURCES: Source[] = [
