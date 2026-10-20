@@ -59,13 +59,14 @@ const frag = /* glsl */ `
     return c;
   }
   void main() {
-    if (!gl_FrontFacing && away < 0.5) discard;
+    if (!gl_FrontFacing) discard; // the shells' insides are never meant to be seen
     float own = shell > 0.0 ? texture2D(front, vUv).a : texture2D(back, vUv).a;
-    if (mix(own, texture2D(outline, vUv).b, away) < 0.5) discard;
+    // facing its camera: cut on the photo's own outline. Turned: keep whole edge cells, whose outer
+    // vertices sit at z = 0 on both shells, so the mesh itself seals the seam.
+    if (mix(own, texture2D(outline, vUv).b, away) < mix(0.5, 0.01, away)) discard;
     float seen = mix(1.0, smoothstep(0.12, 0.62, shell * normalize(vNm).z), away);
     vec4 c = photo((1.0 - seen) * 7.0);
     vec3 n = normalize(vN);
-    if (!gl_FrontFacing) n = -n;
     float facing = clamp(dot(n, normalize(vV)), 0.0, 1.0);
     float wrap = clamp(dot(n, normalize(light)) * 0.5 + 0.5, 0.0, 1.0);
     vec3 col = c.rgb * mix(0.8, 1.08, wrap) * mix(0.66, 1.0, seen);
