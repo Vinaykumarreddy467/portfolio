@@ -1,19 +1,18 @@
-"""Builds every photo the site uses from one studio contact sheet.
+"""Builds the head studies, avatar and share card from the original studio contact sheet.
 
-    pip install rembg scipy pillow onnxruntime
+    pip install rembg scipy pillow
     python scripts/photos.py path/to/contact-sheet.webp
 
-The sheet is five panels (front, back, close-up, profile, three-quarter). For each one this
-cuts the background out (rembg, isnet-general-use), then:
+The sheet is five panels (front, back, close-up, profile, three-quarter). The close-up and the
+profile are cut out (rembg, isnet-general-use) and become:
 
   public/img/photo/<pose>.webp     the original panel, for the lightbox
   public/img/<tee>/<pose>.webp     the cut-out with the tee re-dyed, one folder per colour
   public/img/avatar.webp, og.jpg   nav avatar and share card
   public/favicon.png
-  public/model/...                 the hero's 3D model (see model3d.py; also needs onnxruntime)
 
-front / angle / back go onto one 520x820 canvas, aligned on the cap and the neck, so the
-hero turntable and the model sheet can swap between them without the figure jumping.
+The 3D model and the full-body shots come from the 8-shot turnaround: see turnaround.py.
+dye() and TEES live here and are shared with it.
 """
 import os
 import sys
@@ -22,9 +21,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from rembg import new_session, remove
 from scipy import ndimage
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import model3d  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 OUT = os.path.join(ROOT, 'public', 'img')
@@ -39,7 +35,6 @@ PANELS = {
 }
 # None keeps the tee as photographed.
 TEES = {'crimson': None, 'cobalt': (40, 74, 168), 'forest': (44, 96, 62), 'marigold': (232, 164, 22)}
-CANVAS, TOP = (520, 820), 30
 
 
 def hue_sat(rgba):
@@ -101,29 +96,16 @@ def trim(img, pad=2):
     return img.crop((max(0, x0 - pad), max(0, y0 - pad), min(img.width, x1 + pad), min(img.height, y1 + pad)))
 
 
-def on_canvas(img):
-    """Cap top at TOP, neck centred: front, three-quarter and back then line up."""
-    a = np.asarray(img)[..., 3] > 128
-    top = np.where(a.sum(1) > 3)[0][0]
-    xs = np.where(a[top + 165])[0]
-    canvas = Image.new('RGBA', CANVAS, (0, 0, 0, 0))
-    canvas.paste(img, (CANVAS[0] // 2 - (xs.min() + xs.max()) // 2, TOP - top), img)
-    return canvas
-
-
 def main(src):
     sheet = Image.open(src).convert('RGB')
     session = new_session('isnet-general-use')
     os.makedirs(os.path.join(OUT, 'photo'), exist_ok=True)
-    base, cuts = {}, {}
-    for k, box in PANELS.items():
-        panel = sheet.crop(box)
+    base = {}
+    for k in ('portrait', 'profile'):
+        panel = sheet.crop(PANELS[k])
         panel.save(os.path.join(OUT, 'photo', f'{k}.webp'), quality=86, method=6)
-        cuts[k] = c = cut(panel, session)
-        base[k] = on_canvas(c) if k in ('front', 'angle', 'back') else trim(c)
+        base[k] = trim(cut(panel, session))
         print('cut', k)
-
-    model3d.build(cuts['front'], cuts['back'], os.path.join(ROOT, 'public', 'model'), TEES, dye)
 
     for tee, colour in TEES.items():
         os.makedirs(os.path.join(OUT, tee), exist_ok=True)

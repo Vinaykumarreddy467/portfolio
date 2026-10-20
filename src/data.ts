@@ -37,21 +37,22 @@ export const TEES: Tee[] = [
   { id: 'marigold', name: 'Marigold', swatch: '#e6a417' },
 ];
 
-export type Pose = 'front' | 'angle' | 'back' | 'portrait' | 'profile';
+/** Turnaround shots t000…t315 (camera angle around me, in degrees), plus two older head studies. */
+export type Pose = 't000' | 't045' | 't090' | 't180' | 't315' | 'portrait' | 'profile';
 export const pose = (tee: string, p: Pose) => asset(`img/${tee}/${p}.webp`);
 
-/** 3D model: full-body textures per tee (back already mirrored into model space) and packed 16-bit z-maps. */
-export const modelTex = (tee: string, side: 'front' | 'back') => asset(`model/${tee}/${side}.webp`);
-export const zmap = (side: 'front' | 'back') => asset(`model/z-${side}.png`);
+/** 3D model: the mesh and camera angles are shared; each tee has its own 4×2 atlas of the eight shots. */
+export const modelTex = (tee: string) => asset(`model/${tee}/atlas.webp`);
 
 export type Frame = { id: Pose; code: string; label: string; deg?: string; alt: string };
 
 export const FRAMES: Frame[] = [
-  { id: 'front', code: 'A', label: 'Front', deg: '0°', alt: 'Vinay facing the camera, hands in pockets, in a tee, jeans, glasses and a khaki cap' },
-  { id: 'angle', code: 'B', label: 'Three-quarter', deg: '40°', alt: 'Vinay turned three-quarters, looking off to the side' },
-  { id: 'back', code: 'C', label: 'Back', deg: '180°', alt: 'Vinay seen from behind, in a tee, jeans and a khaki cap' },
-  { id: 'portrait', code: 'D', label: 'Close-up', alt: 'Close-up portrait of Vinay smiling, in glasses and a khaki cap' },
-  { id: 'profile', code: 'E', label: 'Profile', alt: 'Side profile of Vinay in glasses and a khaki cap' },
+  { id: 't000', code: 'A', label: 'Front', deg: '0°', alt: 'Vinay facing the camera, arms relaxed, in a red tee, jeans, glasses and a khaki cap' },
+  { id: 't045', code: 'B', label: 'Three-quarter', deg: '45°', alt: 'Vinay seen from the front right, three-quarters on' },
+  { id: 't090', code: 'C', label: 'Right profile', deg: '90°', alt: 'Vinay in right profile, facing right' },
+  { id: 't180', code: 'D', label: 'Back', deg: '180°', alt: 'Vinay seen from behind, in a red tee, jeans and a khaki cap' },
+  { id: 'portrait', code: 'E', label: 'Close-up', alt: 'Close-up portrait of Vinay smiling, in glasses and a khaki cap' },
+  { id: 'profile', code: 'F', label: 'Profile', alt: 'Side profile of Vinay in glasses and a khaki cap' },
 ];
 
 /** What the hero headline cycles through. Each one is backed by a project below. */

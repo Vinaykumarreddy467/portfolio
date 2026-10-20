@@ -4,11 +4,12 @@ import { SectionHead } from './ui';
 
 // Guide lines on the turnaround, as a % of the 820-unit frame height.
 const GUIDES = [
-  { k: 'cap', y: 3.7 },
-  { k: 'eyes', y: 14.6 },
-  { k: 'chin', y: 21 },
-  { k: 'shoulders', y: 27.4 },
-  { k: 'hands', y: 71.5 },
+  { k: 'cap', y: 3.1 },
+  { k: 'eyes', y: 10.4 },
+  { k: 'chin', y: 16.6 },
+  { k: 'shoulders', y: 19.1 },
+  { k: 'hands', y: 54.1 },
+  { k: 'soles', y: 96.3 },
 ];
 
 function Lightbox({ index, onClose, onNav }: { index: number | null; onClose: () => void; onNav: (d: number) => void }) {
@@ -55,8 +56,8 @@ export function About({ tee }: { tee: string }) {
   const [open, setOpen] = useState<number | null>(null);
   const [hot, setHot] = useState<Pose | null>(null);
   const t = TEES.find((x) => x.id === tee) ?? TEES[0];
-  const turn = FRAMES.slice(0, 3);
-  const heads = FRAMES.slice(3);
+  const turn = FRAMES.slice(0, 4);
+  const heads = FRAMES.slice(4);
 
   const close = useCallback(() => setOpen(null), []);
   const nav = useCallback((d: number) => setOpen((o) => (o === null ? o : (o + d + FRAMES.length) % FRAMES.length)), []);
@@ -88,7 +89,7 @@ export function About({ tee }: { tee: string }) {
         <SectionHead
           idx="02"
           kicker="About · model sheet"
-          lede={<>{PROFILE.mission} Animators draw a character from every angle before they animate it. Here's mine. Pick a pose to see the original photo.</>}
+          lede={<>{PROFILE.mission} Animators draw a character from every angle before they animate it. The 3D model above is built from exactly these shots. Pick one to see the original photo.</>}
         >
           <span id="about-title">One engineer, <span className="serif">every angle.</span></span>
         </SectionHead>
@@ -114,7 +115,7 @@ export function About({ tee }: { tee: string }) {
             </div>
 
             <div className="sheet-heads">
-              {heads.map((_, i) => renderPose(i + 3, 'head'))}
+              {heads.map((_, i) => renderPose(i + 4, 'head'))}
             </div>
           </div>
         </div>

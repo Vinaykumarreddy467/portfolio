@@ -17,10 +17,10 @@ type Props = { tee: string; onTee: (id: string) => void; onCopy: () => void; rea
 
 // Stage coordinates: the figure is 520×820 at x=0; labels sit in the 340 units to its right.
 const NOTES = [
-  { id: 'cap', at: [298, 38], y: 52, k: 'cap', text: <>Thinking cap: <b>RAG · agents · MCP</b></> },
-  { id: 'lens', at: [318, 120], y: 150, k: 'lenses', text: <>Reads the source <b>before</b> answering<Cite id="kbms" sm /></> },
-  { id: 'chest', at: [330, 300], y: 300, k: 'core', text: <>Backend at heart: <b>Spring Boot · FastAPI</b></> },
-  { id: 'watch', at: [378, 578], y: 560, k: 'watch', text: null },
+  { id: 'cap', at: [265, 45], y: 50, k: 'cap', text: <>Thinking cap: <b>RAG · agents · MCP</b></> },
+  { id: 'lens', at: [305, 117], y: 145, k: 'lenses', text: <>Reads the source <b>before</b> answering<Cite id="kbms" sm /></> },
+  { id: 'chest', at: [327, 330], y: 330, k: 'core', text: <>Backend at heart: <b>Spring Boot · FastAPI</b></> },
+  { id: 'watch', at: [428, 608], y: 600, k: 'watch', text: null },
 ] as const;
 
 function Dial({ ring }: { ring: RefObject<SVGGElement | null> }) {
