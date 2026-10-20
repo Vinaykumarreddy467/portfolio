@@ -1,8 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import { ABILITIES, PROFILE, TEES } from '../data';
 import { finePointer, reducedMotion, useClock } from '../hooks';
-import { FACING_LABEL, Figure, preloadTee, useTurntable } from './Turntable';
+import type { Fig3D } from './Figure3D';
+import { Figure, preloadTee, useTurntable } from './Turntable';
 import { Arrow, Cite } from './ui';
+
+// three.js only loads when the browser can run it; until then (or instead) the 2D photo turntable shows.
+const Figure3D = lazy(() => import('./Figure3D'));
+const canWebGL2 = () => {
+  try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; }
+};
+/** Desktop with motion allowed: the hero pins and scrolling scrubs the turnaround. */
+const pinnable = () => typeof window !== 'undefined' && matchMedia('(min-width: 1101px) and (prefers-reduced-motion: no-preference)').matches;
 
 type Props = { tee: string; onTee: (id: string) => void; onCopy: () => void; ready: boolean };
 
@@ -14,12 +23,12 @@ const NOTES = [
   { id: 'watch', at: [378, 578], y: 560, k: 'watch', text: null },
 ] as const;
 
-function Dial({ deg }: { deg: number }) {
+function Dial({ ring }: { ring: RefObject<SVGGElement | null> }) {
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   return (
     <svg viewBox="0 0 400 400" aria-hidden="true">
       <circle cx="200" cy="200" r="198" className="dial-face" />
-      <g className="dial-ring" style={{ transform: `rotate(${-deg}deg)` }}>
+      <g className="dial-ring" ref={ring}>
         {ticks.map((a) => {
           const long = a % 45 === 0;
           return (
@@ -88,11 +97,26 @@ export function Wardrobe({ tee, onTee }: { tee: string; onTee: (id: string) => v
 export function Hero({ tee, onTee, onCopy, ready }: Props) {
   const hero = useRef<HTMLElement>(null);
   const fig = useRef<HTMLDivElement>(null);
+  const ring = useRef<SVGGElement>(null);
+  const readDeg = useRef<HTMLElement>(null);
+  const readLabel = useRef<HTMLElement>(null);
+  const ctl = useRef<Fig3D>({ yaw: 0, pitch: 0, zoom: 0, lx: 0, ly: 0 });
   const time = useClock(PROFILE.timezone);
-  const tt = useTurntable(ready);
-  const { look } = tt;
+  const [want3d] = useState(canWebGL2);
+  const [pin] = useState(pinnable);
+  const [mode, setMode] = useState<'2d' | '3d'>('2d');
+  const [failed, setFailed] = useState(false);
+  const use3d = want3d && !failed;
+  // with 3D coming, hold the intro spin until the model is up, so he only spins once
+  const tt = useTurntable({
+    ctl, dial: ring, readDeg, readLabel,
+    autoSpin: ready && (!use3d || mode === '3d'),
+    lookAmp: mode === '3d' ? 16 : 44,
+  });
+  const { look, setScroll } = tt;
+  const swatch = TEES.find((t) => t.id === tee)?.swatch ?? TEES[0].swatch;
 
-  // Pointer depth (--px/--py), and the figure turning to look at the pointer.
+  // Pointer depth (--px/--py), and the figure turning toward the pointer.
   useEffect(() => {
     const el = hero.current;
     if (!el || !finePointer()) return;
@@ -114,32 +138,44 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
       t.y = ((e.clientY - r.top) / r.height) * 2 - 1;
       kick();
       const f = fig.current?.getBoundingClientRect();
-      if (f && e.pointerType === 'mouse') look((e.clientX - (f.left + f.width / 2)) / f.width);
+      if (f && e.pointerType === 'mouse') look((e.clientX - (f.left + f.width / 2)) / (f.width * 1.2), ((e.clientY - f.top) / f.height) * 2 - 1);
     };
-    const onLeave = () => { t.x = 0; t.y = 0; kick(); look(0); };
+    const onLeave = () => { t.x = 0; t.y = 0; kick(); look(0, 0); };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerleave', onLeave);
     return () => { el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(raf); };
   }, [look]);
 
-  // Scroll progress through the hero (--sp), for the exit parallax.
+  // Scroll: --sp drives the exit parallax. On a pinned desktop hero it also scrubs the
+  // turnaround: the camera pulls back to the full figure while he makes one full turn.
   useEffect(() => {
     if (reducedMotion()) return;
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => hero.current?.style.setProperty('--sp', Math.min(1, scrollY / innerHeight).toFixed(4)));
+      raf = requestAnimationFrame(() => {
+        const el = hero.current;
+        if (!el) return;
+        const pin = pinnable();
+        const span = el.offsetHeight - innerHeight;
+        const p = pin && span > 0 ? Math.min(1, Math.max(0, scrollY / span)) : Math.min(1, scrollY / innerHeight);
+        el.style.setProperty('--sp', p.toFixed(4));
+        el.style.setProperty('--zoom', (pin && use3d ? p : 0).toFixed(4));
+        setScroll(pin ? p : 0);
+      });
     };
+    onScroll();
     addEventListener('scroll', onScroll, { passive: true });
-    return () => { removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
-  }, []);
+    addEventListener('resize', onScroll);
+    return () => { removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); cancelAnimationFrame(raf); };
+  }, [setScroll, use3d]);
 
-  const showNotes = ready && tt.facing === 'front' && !tt.spinning;
-  const deg = ((Math.round(tt.deg) % 360) + 360) % 360;
+  const showNotes = ready && tt.introDone && tt.still;
 
   return (
     <section className="hero" id="top" ref={hero} aria-label="Introduction">
-      <div className="hero-dial"><Dial deg={tt.deg} /></div>
+      <div className="hero-pin">
+      <div className="hero-dial"><Dial ring={ring} /></div>
 
       <div className="name-wrap">
         <h1 className="hero-name">
@@ -155,11 +191,16 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
       </div>
 
       <div className="stage">
-        <div className="fig-box" ref={fig}>
+        <div className={`fig-box${mode === '3d' ? ' is-3d' : ''}`} ref={fig}>
           <Figure tee={tee} facing={tt.facing} />
+          {use3d && (
+            <Suspense fallback={null}>
+              <Figure3D tee={tee} accent={swatch} ctl={ctl} onReady={() => setMode('3d')} onFail={() => { setFailed(true); setMode('2d'); }} />
+            </Suspense>
+          )}
           <button
             className="fig-hit"
-            aria-label={`Turn Vinay around. Facing ${FACING_LABEL[tt.facing]}. Arrow keys turn one step.`}
+            aria-label={`${mode === '3d' ? '3D model of Vinay' : 'Photo of Vinay'}, facing ${tt.facing === 'front' ? 'front' : tt.facing === 'back' ? 'back' : 'three-quarter'}. Drag, or use the arrow keys, to turn him around.`}
             data-cursor="drag"
             {...tt.bind}
           />
@@ -210,15 +251,16 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
             <Wardrobe tee={tee} onTee={onTee} />
           </div>
 
-          <div className="hero-readout mono" aria-live="polite">
-            <span><span className="mute">Facing</span> <b>{String(deg).padStart(3, '0')}°</b> <span className="mute">· {FACING_LABEL[tt.facing]}</span></span>
+          <div className="hero-readout mono">
+            <span><span className="mute">{mode === '3d' ? '3D · facing' : 'Facing'}</span> <b ref={readDeg}>000°</b> <span className="mute">· <span ref={readLabel}>front</span></span></span>
             <span className="hint">
               <button onClick={() => tt.step(-1)} aria-label="Turn left">←</button>
-              <span>drag or tap him</span>
+              <span>{mode === '3d' ? (pin ? 'drag to orbit · scroll to turn' : 'drag to orbit') : 'drag or tap him'}</span>
               <button onClick={() => tt.step(1)} aria-label="Turn right">→</button>
             </span>
           </div>
         </div>
+      </div>
       </div>
     </section>
   );
