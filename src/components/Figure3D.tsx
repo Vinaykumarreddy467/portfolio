@@ -109,6 +109,9 @@ const frag = (v: Views) => /* glsl */ `
       acc += c[i].rgb * w; ws += w;
     }
     vec3 col = ws > 0.0 ? acc / ws : vec3(0.45);
+    // Seen from (near) a photo's own camera, projecting that photo back is exact whatever the mesh's
+    // error, so there show it as taken: no seams where the hull merges an arm into the body.
+    col = mix(col, c[k].rgb, (1.0 - smoothstep(4.0, 10.0, near(th[k]))) * step(0.5, c[k].a));
 
     vec3 n = normalize(vN);
     float facing = clamp(dot(n, normalize(vV)), 0.0, 1.0);
