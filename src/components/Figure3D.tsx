@@ -68,7 +68,9 @@ const frag = (v: Views) => /* glsl */ `
     vec2 px = vec2(CW * 0.5 + (vP.x * cos(t) + vP.z * sin(t)) * 100.0, TOP + HN - vP.y * 100.0);
     if (px.x < 1.0 || px.x > CW - 1.0 || px.y < 1.0 || px.y > CH - 1.0) return vec4(0.0);
     vec2 tile = vec2(float(i % 4), float(i / 4));
-    return texture2D(tex, vec2((tile.x * CW + px.x) / ATLAS.x, 1.0 - (tile.y * CH + px.y) / ATLAS.y));
+    // explicit level: no mipmaps anyway, and some drivers (ANGLE on D3D) reject implicit-derivative
+    // lookups inside this loop's branches
+    return textureLod(tex, vec2((tile.x * CW + px.x) / ATLAS.x, 1.0 - (tile.y * CH + px.y) / ATLAS.y), 0.0);
   }
   vec4 photo(int i) {
     vec4 c = shot(atlas, i);
@@ -117,6 +119,16 @@ const frag = (v: Views) => /* glsl */ `
     gl_FragColor = vec4(col, 1.0);
   }
 `;
+
+/** Whether the frame just rendered put anything on the canvas: a row across its middle has opaque pixels. */
+function drewSomething(renderer: THREE.WebGLRenderer) {
+  const gl = renderer.getContext();
+  const w = gl.drawingBufferWidth;
+  const row = new Uint8Array(w * 4);
+  gl.readPixels(0, gl.drawingBufferHeight >> 1, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, row);
+  for (let i = 3; i < row.length; i += 4) if (row[i] > 200) return true;
+  return false;
+}
 
 /** body.bin: counts, bounds, then uint16 positions, int8 normals, 8 uint8 view weights, uint16 indices. */
 async function loadBody() {
@@ -181,6 +193,9 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
       cbs.current.onFail();
       return;
     }
+    // a shader this GPU can't compile would leave an empty stage: fall back to the photos instead
+    let broken = false;
+    renderer.debug.onShaderError = () => { broken = true; };
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // the shader works in the photos' own sRGB values
     renderer.setClearColor(0x000000, 0);
@@ -244,6 +259,7 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
 
     const look = { pitch: 0, zoom: 0, lx: 0, ly: 0 };
     const t0 = performance.now();
+    let shown = false;
     const sway = reducedMotion() ? 0 : 0.8; // a slight idle weight shift, in degrees
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
@@ -284,6 +300,16 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
         }
       }
       renderer.render(scene, camera);
+      if (!shown) {
+        shown = true;
+        if (broken || !drewSomething(renderer)) {
+          cancelAnimationFrame(raf);
+          cbs.current.onFail();
+          return;
+        }
+        // let the first frame land before the 2D figure fades out
+        requestAnimationFrame(() => !disposed && cbs.current.onReady());
+      }
     };
 
     Promise.all([loadBody(), fetch(asset('model/views.json')).then((r) => r.json() as Promise<Views>), tex(modelTex(curTee))])
@@ -305,8 +331,6 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
         rig.add(new THREE.Mesh(geo, mat));
         resize();
         raf = requestAnimationFrame(frame);
-        // let the first frame land before the 2D figure fades out
-        requestAnimationFrame(() => requestAnimationFrame(() => !disposed && cbs.current.onReady()));
       })
       .catch(() => !disposed && cbs.current.onFail());
 
