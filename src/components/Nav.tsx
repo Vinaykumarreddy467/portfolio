@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react';
+import { CHAPTERS } from '../corpus';
 import { PROFILE, asset } from '../data';
 import { useClock } from '../hooks';
 
-export const SECTIONS = [
-  { id: 'work', label: 'Work' },
-  { id: 'about', label: 'About' },
-  { id: 'method', label: 'Method' },
-  { id: 'journey', label: 'Journey' },
-  { id: 'toolbox', label: 'Toolbox' },
-  { id: 'proof', label: 'Proof' },
-  { id: 'contact', label: 'Contact' },
-];
+// One per guided question below the hero; each anchors a scroll step.
+export const SECTIONS = CHAPTERS.map((c) => ({ id: `q-${c.id}`, label: c.nav }));
 
 type Props = { theme: string; onTheme: () => void; onPalette: () => void };
 

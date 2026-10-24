@@ -11,11 +11,9 @@ Live: https://portfolio-pink-gamma-k8pt11kzv1.vercel.app
 - **A 3D model of me.** The hero is a real-time WebGL model reconstructed from an 8-photo turnaround, not a video or a sprite. Drag to orbit, with inertia, and he settles on the nearest 45° photo. He leans toward your cursor and a light follows it. On desktop, scrolling scrubs a full turn while the camera pulls back from the close-up to the whole figure. A dial tracks the angle. At rest the call-out lines draw onto him: cap, lenses, core, and a watch with live Bengaluru time. Browsers without WebGL2 get the photo turntable instead.
 - **Dye the tee.** Four swatches re-dye the tee (crimson, cobalt, forest, marigold), with a dye line rising up the 3D model from the hem. The whole site's accent colour follows, animated through `@property`. The choice is remembered per visitor.
 - **Kinetic headline.** "I build AI that…" flips through *cites its sources*, *reasons in graphs*, *remembers context* and *measures itself*. Each one is backed by a project.
-- **Model sheet.** The turnaround shots the model is built from, on construction guides (cap, eyes, chin, shoulders, hands, soles). Pick one to open the original photo in a lightbox.
-- **Citations everywhere.** `[n]` footnotes link to a References section, and each reference links to its GitHub repository.
-- **Selected work.** Expandable rows, each with a hand-drawn diagram of that system's actual shape. On desktop, a preview card follows the cursor.
-- **The loop, career as `git log`, ⌘K palette.** The palette can dye the tee too.
-- **Contact and footer.** The profile shot looks at the email address, and the back view walks off behind the footer name.
+- **Ask the corpus.** Below the hero, the site is a small retrieval system over my work. Every fact in `data.ts` is a chunk (about a hundred), laid out as glowing dots in seven clusters on a dark map. Scrolling steps through seven guided questions (who, shipped, method, history, toolbox, proof, contact): each lights its chunks, threads them into a context window with a token budget, and streams an answer with `[n]` citations. Visitors can ask their own: BM25 plus character-trigram vectors, fused with reciprocal rank fusion, in the browser. No model writes anything, and a question nothing matches gets an honest miss. Any card or dot opens the full chunk. Phones get the same questions stacked.
+- **References and the ⌘K palette.** Sources link to their GitHub repositories; the palette jumps to any question and can dye the tee too.
+- **Footer.** The back view walks off behind the footer name.
 - **Light and dark themes**, remembered per visitor. The first visit follows the OS setting.
 - **Accessible and responsive.** Tested from 390 px phones to 1440 px desktops. Honours `prefers-reduced-motion`, and the turntable works with the keyboard.
 
@@ -41,7 +39,7 @@ python scripts/turnaround.py path/to/turnaround/
 
 ## Edit the content
 
-Everything (profile, photos and tee colours, projects, journey, metrics, certifications and sources) lives in one file: [`src/data.ts`](src/data.ts).
+Everything (profile, photos and tee colours, projects, journey, metrics, certifications and sources) lives in one file: [`src/data.ts`](src/data.ts). [`src/corpus.ts`](src/corpus.ts) turns it into chunks, holds the search, the map layout and the guided questions with their written answers.
 
 ## Run
 
