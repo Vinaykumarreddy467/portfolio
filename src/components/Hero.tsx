@@ -111,7 +111,7 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
   const tt = useTurntable({
     ctl, dial: ring, readDeg, readLabel,
     autoSpin: ready && (!use3d || mode === '3d'),
-    lookAmp: mode === '3d' ? 6 : 44, // in 3D, a small turn keeps him near a photo's own angle
+    lookAmp: mode === '3d' ? 4 : 44, // in 3D, a small turn keeps him on a photo's own angle
   });
   const { look, setScroll } = tt;
   const swatch = TEES.find((t) => t.id === tee)?.swatch ?? TEES[0].swatch;

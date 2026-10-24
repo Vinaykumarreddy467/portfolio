@@ -49,6 +49,7 @@ const frag = (v: Views) => /* glsl */ `
   uniform sampler2D atlasNext;
   uniform float dye;
   uniform float yaw;
+  uniform float solid;
   uniform float th[8];
   uniform vec3 light;
   uniform vec3 accent;
@@ -88,9 +89,10 @@ const frag = (v: Views) => /* glsl */ `
       float d = near(th[i]);
       if (d < near(th[k])) k = i;
     }
-    // The body is carved by every photo's outline, so at a camera's own angle its outline is the
-    // truth: trim the smoothing's slight overshoot. Only there; further off, this would cut holes.
-    if (near(th[k]) < 3.0 && c[k].a < 0.5) discard;
+    if (solid < 0.004) discard;
+    // Near a camera's own angle its photo's outline is the truth: trim the volume the carving keeps
+    // beyond it (7 of 8 outlines vote, so some extra survives). Further off, this would cut holes.
+    if (near(th[k]) < 8.0 && c[k].a < 0.5) discard;
 
     // Each point picks the photo that both saw it squarely (its baked weight) and was taken close to
     // the current angle; the choice is sharpened so in-between angles show one photo wrapped on the
@@ -119,9 +121,60 @@ const frag = (v: Views) => /* glsl */ `
     col *= mix(0.86, 1.06, wrap);
     col += accent * pow(1.0 - facing, 4.0) * 0.35;
     if (dye >= 0.0) col += accent * exp(-abs(vP.y / 12.0 - dye) * 150.0) * 0.7;
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, solid);
   }
 `;
+
+// The photo itself, as a flat cut-out facing its own camera. Near a photo's angle it fades in over the
+// model, so standing still he is exactly that photo: every finger, the true outline.
+const cardVert = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const cardFrag = (v: Views) => /* glsl */ `
+  uniform sampler2D atlas;
+  uniform sampler2D atlasNext;
+  uniform float dye;
+  uniform vec3 accent;
+  uniform float view;
+  uniform float fade;
+  varying vec2 vUv;
+  const float CW = ${v.canvas[0].toFixed(1)};
+  const float CH = ${v.canvas[1].toFixed(1)};
+  const float TOP = ${v.top.toFixed(1)};
+  const float HN = ${v.height.toFixed(1)};
+  const vec2 ATLAS = vec2(${(v.canvas[0] * v.atlas[0]).toFixed(1)}, ${(v.canvas[1] * v.atlas[1]).toFixed(1)});
+
+  vec4 tile(sampler2D tex, vec2 px) {
+    vec2 t = vec2(mod(view, 4.0), floor(view / 4.0));
+    return textureLod(tex, vec2((t.x * CW + px.x) / ATLAS.x, 1.0 - (t.y * CH + px.y) / ATLAS.y), 0.0);
+  }
+
+  void main() {
+    vec2 px = clamp(vec2(vUv.x * CW, (1.0 - vUv.y) * CH), vec2(0.5), vec2(CW - 0.5, CH - 0.5));
+    float y = (TOP + HN - px.y) / 100.0;
+    vec4 c = tile(atlas, px);
+    if (dye >= 0.0) c = mix(c, tile(atlasNext, px), step(y / 12.0, dye));
+    vec3 col = c.rgb;
+    if (dye >= 0.0) col += accent * exp(-abs(y / 12.0 - dye) * 150.0) * 0.7;
+    float a = c.a * fade;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(col, a);
+  }
+`;
+
+/** The page's 45° marks onto the photos' calibrated angles (some sit a few degrees off 45°). */
+const warp = (y: number, th: number[]) => {
+  const n = ((y % 360) + 360) % 360;
+  const k = Math.min(7, Math.floor(n / 45));
+  const a0 = th[k];
+  const a1 = k === 7 ? th[0] + 360 : th[k + 1];
+  return y - n + a0 + ((n - k * 45) / 45) * (a1 - a0);
+};
+const gap = (a: number, b: number) => Math.abs((((a - b + 540) % 360) + 360) % 360 - 180);
 
 /** Whether the frame just rendered put anything on the canvas: a row across its middle has opaque pixels. */
 function drewSomething(renderer: THREE.WebGLRenderer) {
@@ -225,6 +278,8 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
       );
 
     let mat: THREE.ShaderMaterial | null = null;
+    let card: { mat: THREE.ShaderMaterial; pivot: THREE.Group; view: number } | null = null;
+    let angles: number[] = [];
     const shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(3.4, 1.6),
       new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }),
@@ -272,10 +327,25 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
       look.ly += (c.ly - look.ly) * 0.08;
       look.zoom += (c.zoom - look.zoom) * 0.2;
       look.pitch += (c.pitch - look.pitch) * 0.1;
-      const yaw = c.yaw + Math.sin(((now - t0) / 1000) * 0.7) * sway;
+      const yaw = warp(c.yaw + Math.sin(((now - t0) / 1000) * 0.7) * sway, angles);
       rig.rotation.y = THREE.MathUtils.degToRad(yaw);
       rig.rotation.x = THREE.MathUtils.degToRad(look.pitch * 0.5);
       mat.uniforms.yaw.value = yaw;
+
+      // The nearest photo's cut-out fades in over the last few degrees before its angle.
+      let k = 0;
+      angles.forEach((a, i) => { if (gap(yaw, a) < gap(yaw, angles[k])) k = i; });
+      // the first frame is drawn before the 3D layer shows, to check the model renders: model only
+      const fade = shown ? 1 - THREE.MathUtils.smoothstep(gap(yaw, angles[k]), 5, 10) : 0;
+      if (card) {
+        if (card.view !== k) {
+          card.view = k;
+          card.mat.uniforms.view.value = k;
+          card.pivot.rotation.y = -THREE.MathUtils.degToRad(angles[k]);
+        }
+        card.mat.uniforms.fade.value = fade;
+      }
+      mat.uniforms.solid.value = 1 - fade;
 
       const z = ease(Math.min(1, Math.max(0, look.zoom)));
       const top = THREE.MathUtils.lerp(FRAMES.near.top, FRAMES.far.top, z);
@@ -318,20 +388,50 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
     Promise.all([loadBody(), fetch(asset('model/views.json')).then((r) => r.json() as Promise<Views>), tex(modelTex(curTee))])
       .then(([geo, views, atlas]) => {
         if (disposed) return;
+        angles = views.angles;
+        // shared by the model and the cut-out, so a dye or accent change reaches both
+        const shared = {
+          atlas: { value: atlas },
+          atlasNext: { value: null as THREE.Texture | null },
+          dye: { value: -1 },
+          accent: { value: new THREE.Color(first.current.accent) },
+        };
         mat = new THREE.ShaderMaterial({
           vertexShader: vert,
           fragmentShader: frag(views),
+          transparent: true,
           uniforms: {
-            atlas: { value: atlas },
-            atlasNext: { value: null },
-            dye: { value: -1 },
+            ...shared,
             yaw: { value: 0 },
+            solid: { value: 1 },
             th: { value: views.angles },
             light: { value: new THREE.Vector3(0.4, 0.6, 1) },
-            accent: { value: new THREE.Color(first.current.accent) },
           },
         });
-        rig.add(new THREE.Mesh(geo, mat));
+        // Fading out, the model must not show its own far side through itself: a depth-only pass
+        // first, so only its front surface takes colour.
+        const depth = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ colorWrite: false }));
+        depth.renderOrder = 1;
+        const body = new THREE.Mesh(geo, mat);
+        body.renderOrder = 2;
+        rig.add(depth, body);
+
+        const [cw, ch] = views.canvas;
+        const cardMat = new THREE.ShaderMaterial({
+          vertexShader: cardVert,
+          fragmentShader: cardFrag(views),
+          transparent: true,
+          depthTest: false,
+          depthWrite: false,
+          uniforms: { ...shared, view: { value: 0 }, fade: { value: 0 } },
+        });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(cw / 100, ch / 100), cardMat);
+        plane.position.y = (views.top + views.height - ch / 2) / 100;
+        plane.renderOrder = 3;
+        const pivot = new THREE.Group();
+        pivot.add(plane);
+        rig.add(pivot);
+        card = { mat: cardMat, pivot, view: -1 };
         resize();
         raf = requestAnimationFrame(frame);
       })
@@ -349,7 +449,7 @@ export default function Figure3D({ tee, accent, ctl, onReady, onFail }: Props) {
         if (o instanceof THREE.Mesh) {
           o.geometry.dispose();
           const m = o.material as THREE.ShaderMaterial | THREE.MeshBasicMaterial;
-          if ('uniforms' in m) { m.uniforms.atlas.value?.dispose(); m.uniforms.atlasNext.value?.dispose(); }
+          if ('uniforms' in m) { m.uniforms.atlas?.value?.dispose(); m.uniforms.atlasNext?.value?.dispose(); }
           else m.map?.dispose();
           m.dispose();
         }
