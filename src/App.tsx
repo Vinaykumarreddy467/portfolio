@@ -1,21 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PROFILE, TEES } from './data';
 import { reducedMotion, useRevealAll } from './hooks';
-import { About } from './components/About';
-import { Archive } from './components/Archive';
-import { Contact } from './components/Contact';
+import { Corpus } from './components/Corpus';
 import { Cursor } from './components/Cursor';
 import { Footer } from './components/Footer';
 import { Hero } from './components/Hero';
-import { Journey } from './components/Journey';
 import { Loader } from './components/Loader';
-import { Marquee } from './components/Marquee';
-import { Method } from './components/Method';
-import { Metrics } from './components/Metrics';
 import { Nav } from './components/Nav';
 import { Palette } from './components/Palette';
-import { Proof } from './components/Proof';
-import { Work } from './components/Work';
 
 const seenIntro = () => {
   try { return sessionStorage.getItem('vkr-intro') === '1'; } catch { return false; }
@@ -105,7 +97,7 @@ export default function App() {
 
   return (
     <div className={ready ? 'ready' : ''}>
-      <a className="skip" href="#work">Skip to work</a>
+      <a className="skip" href="#corpus">Skip to the work</a>
       <div className="progress" ref={bar} aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       {loading && <Loader onDone={finishIntro} />}
@@ -114,15 +106,7 @@ export default function App() {
 
       <main>
         <Hero tee={tee} onTee={dye} onCopy={copyEmail} ready={ready} />
-        <Marquee />
-        <Work />
-        <About tee={tee} />
-        <Metrics />
-        <Method />
-        <Journey />
-        <Archive />
-        <Proof />
-        <Contact onCopy={copyEmail} tee={tee} />
+        <Corpus tee={tee} onCopy={copyEmail} />
       </main>
       <Footer onPalette={() => setPalette(true)} tee={tee} />
 

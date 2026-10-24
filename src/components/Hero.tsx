@@ -245,7 +245,7 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
               with Spring Boot and FastAPI behind them. Currently <strong>{PROFILE.current}</strong>.
             </p>
             <div className="hero-cta">
-              <a className="btn solid" href="#work" data-cursor="view" data-magnetic>See the work <Arrow /></a>
+              <a className="btn solid" href="#q-shipped" data-cursor="view" data-magnetic>See the work <Arrow /></a>
               <button className="btn" onClick={onCopy} data-cursor="copy" data-magnetic>Copy email</button>
             </div>
             <Wardrobe tee={tee} onTee={onTee} />

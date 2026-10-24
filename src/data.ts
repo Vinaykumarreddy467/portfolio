@@ -85,7 +85,6 @@ export type Project = {
   stack: string[];
   metric: { value: string; label: string };
   url: string;
-  motif: 'graph' | 'vectors' | 'buckets' | 'fanout' | 'fusion' | 'agents' | 'pipeline' | 'web';
 };
 
 export const PROJECTS: Project[] = [
@@ -98,7 +97,6 @@ export const PROJECTS: Project[] = [
     stack: ['Python', 'MCP', 'SurrealDB', 'Hybrid search', 'fastembed', 'Retrieval evals'],
     metric: { value: '17', label: 'MCP tools' },
     url: `${GH}/Context_Layer`,
-    motif: 'graph',
   },
   {
     id: 'kbms',
@@ -109,7 +107,6 @@ export const PROJECTS: Project[] = [
     stack: ['Spring Boot 3.5', 'Java 21', 'pgvector', 'Apache Tika', 'Angular 22', 'PrimeNG', 'Ollama'],
     metric: { value: '3', label: 'roles, enforced in SQL' },
     url: `${GH}/knowledge-base-management-system`,
-    motif: 'vectors',
   },
   {
     id: 'redis',
@@ -120,7 +117,6 @@ export const PROJECTS: Project[] = [
     stack: ['Spring Boot 3.5', 'Java 21', 'Redis 7', 'Angular 22', 'Testcontainers'],
     metric: { value: '237', label: 'green tests' },
     url: `${GH}/redis-api-rate-limiting-ddos-protection-poc`,
-    motif: 'buckets',
   },
   {
     id: 'travel',
@@ -132,7 +128,6 @@ export const PROJECTS: Project[] = [
     stack: ['LangGraph', 'LangSmith', 'Groq', 'Streamlit', 'React', 'Duffel API'],
     metric: { value: '4', label: 'agents in parallel' },
     url: `${GH}/travel-assistant`,
-    motif: 'fanout',
   },
   {
     id: 'rag',
@@ -144,7 +139,6 @@ export const PROJECTS: Project[] = [
     stack: ['FastAPI', 'ChromaDB', 'BM25', 'Docling', 'Hugging Face'],
     metric: { value: '2', label: 'retrievers, one ranking' },
     url: `${GH}/Enterprise_RAG_Assistant`,
-    motif: 'fusion',
   },
   {
     id: 'taskqa',
@@ -155,7 +149,6 @@ export const PROJECTS: Project[] = [
     stack: ['Spring Boot 4', 'Angular SSR', 'PostgreSQL', 'Ollama', 'Groq', 'Gemini'],
     metric: { value: '3', label: 'LLM providers' },
     url: `${GH}/task-manager`,
-    motif: 'pipeline',
   },
   {
     id: 'research',
@@ -166,7 +159,6 @@ export const PROJECTS: Project[] = [
     stack: ['n8n', 'FastAPI', 'ChromaDB', 'Ollama', 'Groq', 'React', 'Docker'],
     metric: { value: '2', label: 'front ends' },
     url: `${GH}/Research-Assistant-With-Memory`,
-    motif: 'web',
   },
 ];
 
