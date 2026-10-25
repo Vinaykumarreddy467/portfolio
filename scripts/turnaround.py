@@ -12,9 +12,10 @@ Steps:
   2. Calibration. Each photo's rotation axis and angle are nudged until the 3D shape carved from all
      eight silhouettes re-projects onto every photo as closely as possible. The shots are separate
      images, not a rig, so this matters.
-  3. Visual hull. Space is carved down to what lies inside every silhouette. A small 3D opening
-     removes thin sheets, a blur rounds the 8-sided slices toward the body's oval sections, then
-     marching cubes, decimation and Taubin smoothing.
+  3. Visual hull. Space is carved down to what lies inside at least 7 of the 8 silhouettes: the AI
+     shots disagree a little on the hands and feet, and carving by all 8 cut those away. A small 3D
+     opening removes thin sheets, a blur rounds the 8-sided slices toward the body's oval sections
+     (a finer one across the hands and feet), then marching cubes, decimation and Taubin smoothing.
   4. Bake. For every vertex and photo: is it visible from that camera, inside the cut-out, and
      facing the camera? That gives 8 weights per vertex. Points no camera saw (cap top, soles)
      borrow their neighbours' weights.
@@ -39,6 +40,8 @@ HN = 1200.0                 # body height in model units (cap top to soles); wor
 R = 280.0                   # half-width of the carving box
 CW, CH, TOP = 640, 1280, 40  # aligned canvas per shot: rotation axis at x = CW/2, cap top at y = TOP
 FRAMES_2D = (0, 45, 90, 180, 315)  # shots the page shows directly
+VOTE = 7                    # a point stays if it is inside at least this many of the 8 outlines
+FINE = [(545.0, 120.0), (55.0, 75.0)]  # height bands (centre, half-width) kept sharper: hands, feet
 
 
 def load(folder):
@@ -75,20 +78,21 @@ class Views:
     def scale(self, i):
         return HN / (self.bot[i] - self.top[i])  # model units per source pixel
 
-    def hull(self, step, c=None, th=None):
+    def hull(self, step, c=None, th=None, need=None):
+        """Points inside at least `need` of the silhouettes (default: all of them)."""
         c, th = c or self.c, th or self.th
         xs = np.arange(-R, R + 1e-6, step)
         X, Z = np.meshgrid(xs, xs, indexing='xy')
         ys = np.arange(0, HN + 1e-6, step)
-        occ = np.ones((len(ys),) + X.shape, bool)
+        votes = np.zeros((len(ys),) + X.shape, np.uint8)
         for i, m in enumerate(self.masks):
             s, t = self.scale(i), np.deg2rad(th[i])
             u = np.rint(c[i] + (X * np.cos(t) + Z * np.sin(t)) / s).astype(int)
             inb = (u >= 0) & (u < m.shape[1])
             u = np.clip(u, 0, m.shape[1] - 1)
             v = np.clip(np.rint(self.top[i] + (HN - ys) / s).astype(int), 0, m.shape[0] - 1)
-            occ &= m[v][:, u] & inb[None]
-        return occ, xs, ys
+            votes += m[v][:, u] & inb[None]
+        return votes >= (need or len(self.masks)), xs, ys
 
     def score(self, c, th, step=6):
         """Mean IoU between each silhouette and the carved shape re-projected into that shot."""
@@ -138,13 +142,20 @@ class Views:
 def build_mesh(views):
     import fast_simplification
     from skimage import measure
-    occ, xs, ys = views.hull(2.0)
+    # The shots are separate AI images that don't quite agree on where the hands and feet are, so
+    # requiring every outline carves those away; one dissenting outline is allowed.
+    occ, xs, ys = views.hull(2.0, need=VOTE)
     r = 2
     zz, yy, xx = np.mgrid[-r:r + 1, -r:r + 1, -r:r + 1]
     occ = ndimage.binary_opening(occ, structure=(xx ** 2 + yy ** 2 + zz ** 2) <= r * r + 0.5)
     lab, n = ndimage.label(occ)
     occ = lab == (np.argmax(ndimage.sum(occ, lab, range(1, n + 1))) + 1)
-    f = np.pad(ndimage.gaussian_filter(occ.astype(np.float32), (3.0, 3.2, 3.2)), 1)
+    # A broad blur rounds the carving's flat facets into the body's sections; across the hands and
+    # feet a fine one keeps fingers and shoes from melting away.
+    o = occ.astype(np.float32)
+    fine = np.clip(sum(np.clip(1 - np.abs(ys - mid) / half, 0, 1) * 2 for mid, half in FINE), 0, 1)[:, None, None]
+    f = ndimage.gaussian_filter(o, (3.0, 3.2, 3.2)) * (1 - fine) + ndimage.gaussian_filter(o, (1.4, 1.6, 1.6)) * fine
+    f = np.pad(f, 1)
     verts, faces, _, _ = measure.marching_cubes(f, 0.5)
     verts -= 1
     V = np.stack([xs[0] + verts[:, 2] * 2, ys[0] + verts[:, 0] * 2, xs[0] + verts[:, 1] * 2], 1)

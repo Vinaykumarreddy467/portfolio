@@ -297,9 +297,12 @@ function usePlay(view: View) {
 
 // ---------------------------------------------------------------------------
 
-type MapProps = { view: View | null; phase: string; hot: string | null; onHot: (id: string | null) => void; onOpen: (c: Chunk) => void; small?: boolean };
+type MapProps = {
+  view: View | null; phase: string; hot: string | null; onHot: (id: string | null) => void; onOpen: (c: Chunk) => void;
+  small?: boolean; onCluster?: (id: string) => void;
+};
 
-const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small }: MapProps, ref: Ref<SVGSVGElement>) => {
+const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster }: MapProps, ref: Ref<SVGSVGElement>) => {
   const reach = useMemo(() => new Map(CLUSTERS.map((cl) => {
     const ds = DOTS.filter((d) => d.cluster === cl.id);
     return [cl.id, Math.max(...ds.map((d) => Math.hypot(d.x - cl.x, d.y - cl.y) + d.r))];
@@ -320,7 +323,7 @@ const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small }: MapProps, re
         const n = DOTS.filter((d) => d.cluster === cl.id).length;
         const r = reach.get(cl.id)!;
         return (
-          <g key={cl.id} className={`ccl${lit ? ' on' : ''}`}>
+          <g key={cl.id} className={`ccl${lit ? ' on' : ''}${onCluster ? ' go' : ''}`} onClick={onCluster && (() => onCluster(cl.id))}>
             <circle className="ccl-ring" cx={cl.x} cy={cl.y} r={r + 10} />
             <text x={cl.x} y={cl.y - r - 20} textAnchor="middle">{cl.label.toUpperCase()} <tspan>{n}</tspan></text>
           </g>
@@ -337,7 +340,7 @@ const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small }: MapProps, re
               r={d.r}
               onMouseEnter={() => onHot(d.id)}
               onMouseLeave={() => onHot(null)}
-              onClick={() => onOpen(c)}
+              onClick={onCluster ? undefined : () => onOpen(c)}
             />
           </g>
         );
@@ -362,9 +365,11 @@ type PanelProps = Actions & {
   hot: string | null;
   onHot: (id: string | null) => void;
   refCard?: (id: string) => (el: HTMLElement | null) => void;
+  limit?: number; // phones: show the first few cards, the rest behind a toggle
+  onMore?: () => void;
 };
 
-function Panel({ view, phase, words, hot, onHot, refCard, ...act }: PanelProps) {
+function Panel({ view, phase, words, hot, onHot, refCard, limit, onMore, ...act }: PanelProps) {
   const shown = phase === 'show';
   const tok = shown ? view.cards.reduce((s, c) => s + tokensOf(c), 0) : 0;
   const num = new Map(view.cards.map((c, i) => [c.id, i + 1]));
@@ -382,22 +387,29 @@ function Panel({ view, phase, words, hot, onHot, refCard, ...act }: PanelProps) 
       </header>
       {shown && (
         <ol className="ccards" key={view.key} data-many={view.cards.length > 5 || undefined}>
-          {view.cards.map((c, i) => (
+          {view.cards.slice(0, limit).map((c, i) => (
             <Card key={c.id} c={c} n={i + 1} i={i} hit={view.hits?.get(c.id)} top={view.hits ? view.cards.map((x) => view.hits!.get(x.id)!.bm25) : null}
               hot={hot === c.id} onHot={onHot} refEl={refCard?.(c.id)} {...act} />
           ))}
         </ol>
       )}
+      {shown && onMore && view.cards.length > 3 && (
+        <button className="cmore mono" onClick={onMore} aria-expanded={!limit}>
+          {limit ? `show all ${view.cards.length} chunks ↓` : 'show fewer ↑'}
+        </button>
+      )}
       {shown && !view.cards.length && <p className="cempty mono">0 chunks retrieved</p>}
       <div className="cans">
         <span className="mono">answer{view.typed ? '' : ' · retrieval only'}</span>
-        <p>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} /> : <span className="cthink mono">retrieving…</span>}</p>
+        <p>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={act.onOpen} /> : <span className="cthink mono">retrieving…</span>}</p>
       </div>
     </div>
   );
 }
 
-function AnswerText({ segs, words, num, onHot }: { segs: Seg[]; words: number; num: Map<string, number>; onHot: (id: string | null) => void }) {
+type AnswerProps = { segs: Seg[]; words: number; num: Map<string, number>; onHot: (id: string | null) => void; onOpen: (c: Chunk) => void };
+
+function AnswerText({ segs, words, num, onHot, onOpen }: AnswerProps) {
   let left = words;
   const out: ReactNode[] = [];
   segs.forEach((s, i) => {
@@ -420,7 +432,8 @@ function AnswerText({ segs, words, num, onHot }: { segs: Seg[]; words: number; n
       left -= 1;
       const n = num.get(s.cite);
       out.push(
-        <button key={i} className="ccite mono" onMouseEnter={() => onHot(s.cite)} onMouseLeave={() => onHot(null)} onFocus={() => onHot(s.cite)} onBlur={() => onHot(null)}
+        <button key={i} className="ccite mono" onClick={() => onOpen(chunk(s.cite))}
+          onMouseEnter={() => onHot(s.cite)} onMouseLeave={() => onHot(null)} onFocus={() => onHot(s.cite)} onBlur={() => onHot(null)}
           aria-label={`Citation ${n}: ${chunk(s.cite).title}`}>
           {n}
         </button>,
@@ -485,11 +498,18 @@ function Steps(act: Actions) {
   const [asked, setAsked] = useState<View | null>(null);
   const [draft, setDraft] = useState('');
   const [hot, setHot] = useState<string | null>(null);
+  const [all, setAll] = useState<Set<string>>(() => new Set());
   const ask = (q: string) => q.trim() && setAsked(askView(q.trim()));
+  const more = (id: string) => setAll((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const jump = (cluster: string) => {
+    const ch = CHAPTERS.find((c) => c.kinds.some((k) => clusterOf(k)?.id === cluster));
+    if (ch) document.getElementById(`q-${ch.id}`)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' });
+  };
   return (
     <div className="csteps wrap">
       <div className="csteps-map">
-        <CorpusMap view={asked} phase="show" hot={hot} onHot={setHot} onOpen={act.onOpen} small />
+        <CorpusMap view={asked} phase="show" hot={hot} onHot={setHot} onOpen={act.onOpen} onCluster={jump} small />
+        <p className="mono cmap-hint">tap a cluster to jump to its question</p>
       </div>
       <form className="cquery" role="search" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
         <label htmlFor="cq-m" className="mono">ask</label>
@@ -505,7 +525,7 @@ function Steps(act: Actions) {
       {CHAPTERS.map((ch, i) => (
         <section key={ch.id} id={`q-${ch.id}`} className="cstep" aria-labelledby={`cstep-${ch.id}`}>
           <h3 id={`cstep-${ch.id}`} className="cstep-q"><span className="mono">0{i + 1}</span> <span className="cq-caret">›</span> {ch.q}</h3>
-          <Panel view={chapterView(ch)} phase="show" words={Infinity} hot={hot} onHot={setHot} {...act} />
+          <Panel view={chapterView(ch)} phase="show" words={Infinity} hot={hot} onHot={setHot} limit={all.has(ch.id) ? undefined : 3} onMore={() => more(ch.id)} {...act} />
         </section>
       ))}
     </div>

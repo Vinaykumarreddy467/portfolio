@@ -26,7 +26,7 @@ The hero model is reconstructed from an **8-shot turnaround**: full-body photos 
 3. **Visual hull.** Space is carved down to what lies inside every silhouette. A 3D opening removes thin sheets, a blur rounds the 8-sided slices toward the body's oval sections, then marching cubes, decimation and Taubin smoothing give 60k triangles.
 4. **View weights.** For every vertex and every photo, the script works out whether that camera saw it: visible (z-buffer), inside the cut-out, facing the camera. It also builds a 4×2 atlas of the eight aligned shots for each tee colour.
 
-In the browser ([`Figure3D`](src/components/Figure3D.tsx)), every pixel takes its colour from the photo that both saw that spot squarely and was taken closest to the current angle. At each 45° stop you see the actual photo; in between, one photo wraps the turning geometry. Points no camera saw borrow from their neighbours.
+In the browser ([`Figure3D`](src/components/Figure3D.tsx)), every pixel takes its colour from the photo that both saw that spot squarely and was taken closest to the current angle. In between stops, one photo wraps the turning geometry; points no camera saw borrow from their neighbours. Near each stop the photo itself, as a flat cut-out facing its own camera, fades in over the model, so standing still he is exactly that photo: every finger and the true outline. The page's 45° marks are mapped onto the photos' calibrated angles (two sit at 41° and 140°) so each stop lands on its photo.
 
 To rebuild with new photos, put `000…315` (any image type) in a folder:
 
