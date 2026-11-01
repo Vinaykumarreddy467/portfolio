@@ -241,7 +241,7 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
       </div>
 
       <div className="stage stage-notes">
-        <div className={`notes${showNotes ? ' show' : ''}`} aria-hidden={!showNotes}>
+        <div className={`notes${showNotes ? ' show' : ''}`} aria-hidden={!showNotes} inert={!showNotes}>
           <svg viewBox="0 0 860 820" preserveAspectRatio="none" aria-hidden="true">
             {NOTES.map((n, i) => (
               <g key={n.id} style={{ ['--d' as string]: `${0.1 + i * 0.12}s` }}>

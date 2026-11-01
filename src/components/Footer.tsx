@@ -19,7 +19,7 @@ export function Footer({ onPalette, tee }: { onPalette: () => void; tee: string 
         <div className="giant" aria-hidden="true">
           Vinay <span className="serif">Reddy</span>
           <span className="walk" data-reveal>
-            <img src={pose(tee, 't180')} alt="" loading="lazy" />
+            <img src={pose(tee, 't180')} alt="" loading="lazy" width="640" height="1280" />
             <span className="mono">That's me, back to work.</span>
           </span>
         </div>
