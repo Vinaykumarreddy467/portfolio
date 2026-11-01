@@ -662,6 +662,8 @@ ul, ol { padding: 0; list-style: none; }
 .ccard-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .ccard .ccard-chips { max-height: 21px; overflow: hidden; }
 .ccards[data-many] .ccard-text { -webkit-line-clamp: 1; }
+.cstage .ccards[data-many] { gap: 6px; }
+.cstage .ccards[data-many] .ccard { padding-block: 8px; }
 .ccard-chips span { font: 10px var(--f-mono); color: var(--c-fg-2); border: 1px solid var(--c-line-2); border-radius: 4px; padding: 2px 6px; }
 .ccard-side { font-size: 10px; color: var(--c-mute); padding-top: 3px; white-space: nowrap; display: inline-flex; gap: 4px; align-items: center; }
 .cscore { display: grid; grid-template-columns: 54px; gap: 3px; justify-items: end; }
@@ -713,9 +715,10 @@ ul, ol { padding: 0; list-style: none; }
 .cinsp h3 { font-size: clamp(28px, 3.4vw, 42px); letter-spacing: -0.035em; line-height: 1.02; margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .cinsp h3 em { font-style: normal; font-size: 10px; color: var(--c-acc); }
 .cinsp-meta { color: var(--c-acc); margin: 0 0 14px; font-size: 11px; }
-.cinsp-lead { font-size: 18px; color: var(--c-fg); line-height: 1.5; }
+.cinsp-lead { font-size: 18px; color: var(--c-fg); line-height: 1.5; margin: 0 0 14px; }
 .cinsp p, .cinsp li { color: var(--c-fg-2); line-height: 1.6; }
 .cinsp ul { padding-left: 18px; }
+.cinsp .ccard-chips { margin-top: 16px; }
 .cinsp footer { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 24px; clear: both; }
 .cinsp .btn { color: var(--c-fg); border-color: var(--c-line-2); }
 .cinsp .btn.solid { background: var(--c-acc); color: var(--c-bg); border-color: var(--c-acc); }
