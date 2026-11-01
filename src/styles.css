@@ -696,8 +696,6 @@ ul, ol { padding: 0; list-style: none; }
 .cstep { padding-top: 36px; border-top: 1px solid var(--c-line); margin-top: 18px; display: grid; gap: 14px; scroll-margin-top: 70px; }
 .cstep-q { margin: 0; font-size: clamp(24px, 6vw, 34px); letter-spacing: -0.03em; font-weight: 600; line-height: 1.1; }
 .cstep-q .mono { color: var(--c-mute); font-size: 11px; vertical-align: middle; }
-.csteps .ccards { overflow: visible; }
-.csteps .ccard { animation: none; opacity: 1; }
 
 /* Chunk inspector */
 .cinsp {
@@ -731,11 +729,10 @@ ul, ol { padding: 0; list-style: none; }
   .ccard { opacity: 1; }
   .clinks path { stroke-dashoffset: 0; }
 }
-.csteps .ccards[data-many] .ccard-text { -webkit-line-clamp: 3; }
 /* Phones: a map you can read and tap, labels big enough to read, three cards per question */
 .cmap.small .ccl text { font-size: 30px; letter-spacing: 0.06em; }
 .cmap.small .ccl tspan { fill: var(--c-mute); }
-.cmap.small .cdot { transform: scale(1.5); pointer-events: none; } /* a tap anywhere on a cluster jumps */
+.cmap.small .cdot { transform: scale(1.5); pointer-events: none; } /* a tap anywhere on a cluster zooms */
 .cmap.small .ccl.go { cursor: pointer; }
 .cmap.small .ccl.go .ccl-ring { fill: color-mix(in srgb, var(--c-fg) 3%, transparent); stroke: var(--c-line-2); }
 .cmap-hint { margin: 6px 0 0; text-align: center; color: var(--c-mute); font-size: 11px; }
@@ -743,8 +740,91 @@ ul, ol { padding: 0; list-style: none; }
 .csteps .ccard-side, .csteps .ccite { font-size: 11px; }
 .csteps .ccard-n { font-size: 12px; }
 .csteps .ccite { line-height: 18px; min-width: 22px; }
-.cmore {
-  width: 100%; padding: 12px; border: 1px dashed var(--c-line-2); border-radius: 12px; background: none;
-  color: var(--c-acc); font-size: 11.5px; cursor: pointer; transition: border-color 0.3s, background 0.3s;
+/* Phones: the map zooms into a cluster */
+.cmap-z { transition: transform 0.7s var(--ease); }
+.cmap.small { overflow: hidden; }
+.cmap.small .ctip { display: none; }
+.cmap-z[data-zoom] .ccl text, .cmap-z[data-zoom] .cmap-grid { opacity: 0; }
+.ccl text, .cmap-grid { transition: opacity 0.4s, fill 0.6s; }
+.cmap-z[data-zoom] .ccl:not(.in) .ccl-ring { opacity: 0; }
+.cmap-z[data-zoom] .ccl.in .ccl-ring { stroke: color-mix(in srgb, var(--c-acc) 40%, transparent); fill: color-mix(in srgb, var(--c-acc) 4%, transparent); }
+.cfloat.out { opacity: 0.12; transition: opacity 0.5s; }
+.cfloat { transition: opacity 0.5s; }
+.cmap.small .cdot.tap { pointer-events: auto; transform: scale(1.25); fill: color-mix(in srgb, var(--c-fg) 55%, transparent); }
+.cmap.small .cdot.tap.hot, .cmap.small .cdot.tap:active { fill: var(--c-acc); transform: scale(1.8); }
+.czoom { display: grid; gap: 10px; margin-top: 8px; animation: cfade 0.4s var(--ease); }
+.czoom-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; }
+.czoom-bar b { color: var(--c-acc); font-weight: 500; }
+.czoom-bar button, .creplay {
+  background: none; border: 1px solid var(--c-line-2); color: var(--c-fg); border-radius: 999px; padding: 8px 12px;
+  font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.cmore:hover { border-color: var(--c-acc); background: color-mix(in srgb, var(--c-acc) 8%, transparent); }
+.czoom-bar button:active, .creplay:active { border-color: var(--c-acc); color: var(--c-acc); }
+.czoom-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; max-height: 132px; overflow-y: auto; }
+.czoom-list button {
+  background: var(--c-bg-2); border: 1px solid var(--c-line); color: var(--c-fg-2); border-radius: 8px; padding: 7px 10px;
+  font: 500 13px var(--f-sans); cursor: pointer; text-align: left; animation: cin 0.5s var(--ease) both;
+}
+.czoom-list button:active { border-color: var(--c-acc); color: var(--c-fg); }
+
+/* Phones: a bar that follows you down the section */
+.cbar-m {
+  position: sticky; top: 0; z-index: 20; margin: 0 calc(var(--gutter) * -1); padding: 8px var(--gutter);
+  display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center;
+  background: color-mix(in srgb, var(--c-bg) 86%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--c-line); transition: top 0.6s var(--ease);
+}
+body:has(.nav.scrolled:not(.hidden)) .cbar-m { top: var(--navh, 63px); }
+.cmini { padding: 0; border: 1px solid var(--c-line-2); border-radius: 8px; background: var(--c-bg-2); height: 41px; cursor: pointer; overflow: hidden; }
+.cmini svg { width: 100%; height: 100%; display: block; }
+.cmini circle { fill: color-mix(in srgb, var(--c-fg) 22%, transparent); transition: fill 0.5s; }
+.cmini circle.on { fill: var(--c-acc); }
+.cbar-rail { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 18px), transparent); }
+.cbar-rail::-webkit-scrollbar { display: none; }
+.cbar-rail button {
+  flex: none; display: inline-flex; gap: 6px; align-items: baseline; padding: 9px 12px; border-radius: 999px; border: 0;
+  background: none; color: var(--c-mute); font: 500 14px var(--f-sans); white-space: nowrap; cursor: pointer; scroll-snap-align: center;
+  transition: color 0.3s, background 0.3s; -webkit-tap-highlight-color: transparent;
+}
+.cbar-rail button .mono { font-size: 10px; }
+.cbar-rail button.on { color: var(--c-bg); background: var(--c-acc); }
+.cbar-prog { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--c-acc); transform-origin: left; transition: transform 0.6s var(--ease); }
+.csteps .cstep { scroll-margin-top: 128px; }
+.cstep-ask { scroll-margin-top: 128px; }
+.cstep-ask .cstep { border-top-color: var(--c-acc); }
+.cstep-ask .cstep-q > .mono { color: var(--c-acc); }
+.cstep-rest { visibility: hidden; }
+.cstep .cstream { height: 0.8em; vertical-align: -1px; }
+.creplay { justify-self: start; font-size: 11px; color: var(--c-fg-2); transition: opacity 0.5s; }
+.creplay.wait { opacity: 0; pointer-events: none; }
+.cq-clear { background: none !important; color: var(--c-mute) !important; padding: 6px !important; }
+
+/* Phones: cards in a row you swipe */
+.cswipe { display: grid; gap: 10px; min-width: 0; }
+.ccards.swipe {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 86%; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px 0;
+  margin: 0 calc(var(--gutter) * -1); padding-inline: var(--gutter); scroll-padding-inline: var(--gutter);
+}
+.ccards.swipe::-webkit-scrollbar { display: none; }
+.ccards.swipe .ccard { scroll-snap-align: start; min-height: 128px; grid-template-columns: 26px minmax(0, 1fr) auto; }
+.ccards.swipe .ccard-text { -webkit-line-clamp: 4; }
+.ccards.swipe .ccard .ccard-chips { max-height: 46px; }
+.ccards.swipe .ccard:active { border-color: var(--c-acc); }
+.ccard.hot { transition: border-color 0.2s, background 0.2s, box-shadow 0.3s; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-acc) 22%, transparent); }
+.cpager { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--c-mute); font-size: 11px; }
+.cpager-dots { display: flex; gap: 2px; }
+.cpager-dots button { width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.cpager-dots button::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--c-line-2); transition: width 0.3s var(--ease), background 0.3s; }
+.cpager-dots button.on::before { width: 16px; background: var(--c-acc); }
+.cswipe.wait { pointer-events: none; }
+.cswipe.wait .ccard { animation: none; opacity: 1; background: linear-gradient(100deg, var(--c-bg-2) 30%, var(--c-bg-3) 50%, var(--c-bg-2) 70%) 0 0 / 300% 100%; animation: cshim 1.2s linear infinite; }
+.cswipe.wait .ccard > *, .cswipe.wait .cpager { visibility: hidden; }
+@keyframes cshim { to { background-position: -150% 0; } }
+.cans-hold { display: grid; }
+.cans-hold > * { grid-area: 1 / 1; }
+.cans-ghost { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .cmap-z, .cbar-prog, .cbar-m { transition: none; }
+  .cswipe.wait .ccard, .czoom, .czoom-list button { animation: none; }
+}

@@ -146,6 +146,39 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
     return () => { el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(raf); };
   }, [look]);
 
+  // Phones: tilt the phone for the same depth, and in 3D he follows the tilt a little.
+  const is3d = useRef(false);
+  is3d.current = mode === '3d';
+  useEffect(() => {
+    const el = hero.current;
+    if (!el || finePointer() || reducedMotion() || typeof DeviceOrientationEvent === 'undefined') return;
+    const t = { x: 0, y: 0 };
+    const c = { x: 0, y: 0 };
+    let raf = 0;
+    let base: number | null = null; // how he holds the phone, taken from the first reading
+    const tick = () => {
+      c.x += (t.x - c.x) * 0.1;
+      c.y += (t.y - c.y) * 0.1;
+      el.style.setProperty('--px', c.x.toFixed(4));
+      el.style.setProperty('--py', c.y.toFixed(4));
+      raf = Math.abs(t.x - c.x) + Math.abs(t.y - c.y) > 0.001 ? requestAnimationFrame(tick) : 0;
+    };
+    const onTilt = (e: DeviceOrientationEvent) => {
+      if (e.gamma == null || e.beta == null) return;
+      base ??= e.beta;
+      t.x = Math.max(-1, Math.min(1, e.gamma / 25));
+      t.y = Math.max(-1, Math.min(1, (e.beta - base) / 25));
+      if (!raf) raf = requestAnimationFrame(tick);
+      if (is3d.current) look(t.x * 0.6, t.y);
+    };
+    addEventListener('deviceorientation', onTilt);
+    // iOS asks first, and only from a tap.
+    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    const ask = () => { D.requestPermission?.().catch(() => {}); };
+    if (D.requestPermission) el.addEventListener('touchend', ask, { once: true });
+    return () => { removeEventListener('deviceorientation', onTilt); el.removeEventListener('touchend', ask); cancelAnimationFrame(raf); look(0, 0); };
+  }, [look]);
+
   // Scroll: --sp drives the exit parallax. On a pinned desktop hero it also scrubs the
   // turnaround: the camera pulls back to the full figure while he makes one full turn.
   useEffect(() => {

@@ -250,11 +250,17 @@ function Stage(act: Actions) {
 }
 
 /** Types the question, then streams the answer a couple of words at a time. */
-function usePlay(view: View) {
-  const [typed, setTyped] = useState(view.q);
-  const [phase, setPhase] = useState<'type' | 'show'>('show');
-  const [words, setWords] = useState(Infinity);
+function usePlay(view: View, on = true) {
+  const [typed, setTyped] = useState(on ? view.q : '');
+  const [phase, setPhase] = useState<'type' | 'show'>(on ? 'show' : 'type');
+  const [words, setWords] = useState(on ? Infinity : 0);
   useEffect(() => {
+    if (!on) {
+      setTyped('');
+      setPhase('type');
+      setWords(0);
+      return;
+    }
     if (reducedMotion()) {
       setTyped(view.q);
       setPhase('show');
@@ -291,7 +297,7 @@ function usePlay(view: View) {
       }
     }, 34);
     return () => { clearInterval(id); clearTimeout(t); };
-  }, [view]);
+  }, [view, on]);
   return { typed, phase, words };
 }
 
@@ -299,10 +305,10 @@ function usePlay(view: View) {
 
 type MapProps = {
   view: View | null; phase: string; hot: string | null; onHot: (id: string | null) => void; onOpen: (c: Chunk) => void;
-  small?: boolean; onCluster?: (id: string) => void;
+  small?: boolean; onCluster?: (id: string) => void; zoom?: string | null;
 };
 
-const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster }: MapProps, ref: Ref<SVGSVGElement>) => {
+const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster, zoom }: MapProps, ref: Ref<SVGSVGElement>) => {
   const reach = useMemo(() => new Map(CLUSTERS.map((cl) => {
     const ds = DOTS.filter((d) => d.cluster === cl.id);
     return [cl.id, Math.max(...ds.map((d) => Math.hypot(d.x - cl.x, d.y - cl.y) + d.r))];
@@ -310,10 +316,14 @@ const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster }: M
   const on = (id: string) => !!view && phase === 'show' && view.lit.has(id);
   const hotDot = hot ? dotOf.get(hot) : null;
   const hotChunk = hotDot ? CHUNKS.find((c) => c.id === hotDot.id) : null;
+  const zc = zoom ? CLUSTERS.find((c) => c.id === zoom) : null;
+  const zs = zc ? Math.min(3.2, (MAP.h * 0.44) / (reach.get(zc.id)! + 24)) : 1;
+  const zt = zc ? `translate(${MAP.w / 2}px, ${MAP.h / 2}px) scale(${zs}) translate(${-zc.x}px, ${-zc.y}px)` : 'none';
 
   return (
     <svg ref={ref} className={`cmap${small ? ' small' : ''}`} viewBox={`0 0 ${MAP.w} ${MAP.h}`} preserveAspectRatio="xMidYMid meet" role="img"
       aria-label={`Map of ${CHUNKS.length} chunks in ${CLUSTERS.length} clusters: ${CLUSTERS.map((c) => c.label).join(', ')}`}>
+      <g className="cmap-z" style={{ transform: zt }} data-zoom={zoom ?? undefined}>
       <g className="cmap-grid" aria-hidden="true">
         {[120, 240, 360].map((r) => <circle key={r} cx={MAP.w / 2} cy={MAP.h / 2} r={r} />)}
         <path d={`M${MAP.w / 2} 20V${MAP.h - 20}M20 ${MAP.h / 2}H${MAP.w - 20}`} />
@@ -323,7 +333,7 @@ const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster }: M
         const n = DOTS.filter((d) => d.cluster === cl.id).length;
         const r = reach.get(cl.id)!;
         return (
-          <g key={cl.id} className={`ccl${lit ? ' on' : ''}${onCluster ? ' go' : ''}`} onClick={onCluster && (() => onCluster(cl.id))}>
+          <g key={cl.id} className={`ccl${lit ? ' on' : ''}${onCluster ? ' go' : ''}${zoom === cl.id ? ' in' : ''}`} onClick={onCluster && !zoom ? () => onCluster(cl.id) : undefined}>
             <circle className="ccl-ring" cx={cl.x} cy={cl.y} r={r + 10} />
             <text x={cl.x} y={cl.y - r - 20} textAnchor="middle">{cl.label.toUpperCase()} <tspan>{n}</tspan></text>
           </g>
@@ -332,19 +342,20 @@ const CorpusMapInner = ({ view, phase, hot, onHot, onOpen, small, onCluster }: M
       {DOTS.map((d) => {
         const c = CHUNKS.find((x) => x.id === d.id)!;
         return (
-          <g key={d.id} className="cfloat" style={{ ['--d' as string]: d.d }}>
+          <g key={d.id} className={`cfloat${zoom && d.cluster !== zoom ? ' out' : ''}`} style={{ ['--d' as string]: d.d }}>
             <circle
-              className={`cdot k-${c.kind}${on(d.id) ? ' on' : ''}${hot === d.id ? ' hot' : ''}`}
+              className={`cdot k-${c.kind}${on(d.id) ? ' on' : ''}${hot === d.id ? ' hot' : ''}${zoom === d.cluster ? ' tap' : ''}`}
               cx={d.x}
               cy={d.y}
               r={d.r}
               onMouseEnter={() => onHot(d.id)}
               onMouseLeave={() => onHot(null)}
-              onClick={onCluster ? undefined : () => onOpen(c)}
+              onClick={onCluster && zoom !== d.cluster ? undefined : () => onOpen(c)}
             />
           </g>
         );
       })}
+      </g>
       {hotDot && hotChunk && (
         <g className="ctip" transform={`translate(${hotDot.x},${hotDot.y - hotDot.r - 12})`} pointerEvents="none">
           <rect x={-(hotChunk.title.length * 7.4 + 20) / 2} y={-22} width={hotChunk.title.length * 7.4 + 20} height={26} rx={6} />
@@ -365,11 +376,11 @@ type PanelProps = Actions & {
   hot: string | null;
   onHot: (id: string | null) => void;
   refCard?: (id: string) => (el: HTMLElement | null) => void;
-  limit?: number; // phones: show the first few cards, the rest behind a toggle
-  onMore?: () => void;
+  swipe?: boolean; // phones: the cards sit in a row you swipe through
+  onCite?: (id: string) => void; // phones: a citation points at its card instead of opening it
 };
 
-function Panel({ view, phase, words, hot, onHot, refCard, limit, onMore, ...act }: PanelProps) {
+function Panel({ view, phase, words, hot, onHot, refCard, swipe, onCite, ...act }: PanelProps) {
   const shown = phase === 'show';
   const tok = shown ? view.cards.reduce((s, c) => s + tokensOf(c), 0) : 0;
   const num = new Map(view.cards.map((c, i) => [c.id, i + 1]));
@@ -385,23 +396,27 @@ function Panel({ view, phase, words, hot, onHot, refCard, limit, onMore, ...act 
             : <>bm25 + trigram vectors · rrf k=60 · {view.cards.length} hits in {(view.ms ?? 0).toFixed(1)} ms</>}
         </p>
       </header>
-      {shown && (
+      {shown && !swipe && (
         <ol className="ccards" key={view.key} data-many={view.cards.length > 5 || undefined}>
-          {view.cards.slice(0, limit).map((c, i) => (
+          {view.cards.map((c, i) => (
             <Card key={c.id} c={c} n={i + 1} i={i} hit={view.hits?.get(c.id)} top={view.hits ? view.cards.map((x) => view.hits!.get(x.id)!.bm25) : null}
               hot={hot === c.id} onHot={onHot} refEl={refCard?.(c.id)} {...act} />
           ))}
         </ol>
       )}
-      {shown && onMore && view.cards.length > 3 && (
-        <button className="cmore mono" onClick={onMore} aria-expanded={!limit}>
-          {limit ? `show all ${view.cards.length} chunks ↓` : 'show fewer ↑'}
-        </button>
-      )}
+      {swipe && !!view.cards.length && <Swipe view={view} wait={!shown} hot={hot} onHot={onHot} {...act} />}
       {shown && !view.cards.length && <p className="cempty mono">0 chunks retrieved</p>}
       <div className="cans">
         <span className="mono">answer{view.typed ? '' : ' · retrieval only'}</span>
-        <p>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={act.onOpen} /> : <span className="cthink mono">retrieving…</span>}</p>
+        {swipe ? (
+          // phones: the whole answer holds its space while it streams, so nothing below jumps
+          <p className="cans-hold">
+            <span className="cans-ghost" aria-hidden="true"><AnswerText segs={view.answer} words={Infinity} num={num} onHot={onHot} onOpen={act.onOpen} /></span>
+            <span>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={(c) => (onCite ? onCite(c.id) : act.onOpen(c))} /> : <span className="cthink mono">retrieving…</span>}</span>
+          </p>
+        ) : (
+          <p>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={act.onOpen} /> : <span className="cthink mono">retrieving…</span>}</p>
+        )}
       </div>
     </div>
   );
@@ -455,7 +470,7 @@ function Card({ c, n, i, hit, top, hot, onHot, refEl, onOpen, onCopy, tee }: Car
   const maxBm = top ? Math.max(...top, 1e-6) : 1;
   const hit2 = c.kind === 'contact' && c.url && c.id !== 'c-local';
   return (
-    <li ref={refEl} className={`ccard k-${c.kind}${hot ? ' hot' : ''}`} style={{ ['--i' as string]: i }}
+    <li ref={refEl} data-id={c.id} className={`ccard k-${c.kind}${hot ? ' hot' : ''}`} style={{ ['--i' as string]: i }}
       onMouseEnter={() => onHot(c.id)} onMouseLeave={() => onHot(null)}>
       {c.id === 'c-email' ? (
         <button className="ccard-hit" onClick={onCopy} aria-label={`Copy email address ${PROFILE.email}`} />
@@ -492,42 +507,215 @@ function Card({ c, n, i, hit, top, hot, onHot, refEl, onOpen, onCopy, tee }: Car
 }
 
 // ---------------------------------------------------------------------------
-// Narrow screens: the same questions, one after another, no pinning.
+// Narrow screens: the same questions, one after another. Each one asks itself as it
+// scrolls in, a sticky bar follows along, the map zooms, and the cards swipe.
+
+const buzz = () => { try { navigator.vibrate?.(8); } catch { /* not allowed */ } };
+const smooth = (): ScrollBehavior => (reducedMotion() ? 'auto' : 'smooth');
+/** Where a swipe row must scroll to put this card first. */
+const leftOf = (ol: HTMLElement, li: HTMLElement) =>
+  Math.max(0, Math.min(ol.scrollWidth - ol.clientWidth, li.offsetLeft - ol.offsetLeft - parseFloat(getComputedStyle(ol).paddingLeft)));
+
+function Swipe({ view, wait, hot, onHot, ...act }: Actions & { view: View; wait: boolean; hot: string | null; onHot: (id: string | null) => void }) {
+  const row = useRef<HTMLOListElement>(null);
+  const [at, setAt] = useState(0);
+  const n = view.cards.length;
+  const go = (i: number) => {
+    const el = row.current?.children[i] as HTMLElement | undefined;
+    if (el && row.current) row.current.scrollTo({ left: leftOf(row.current, el), behavior: smooth() });
+  };
+  const onScroll = () => {
+    const el = row.current;
+    if (!el || !el.children.length) return;
+    const w = (el.children[0] as HTMLElement).offsetWidth + 10;
+    setAt(el.scrollLeft >= el.scrollWidth - el.clientWidth - 2 ? n - 1 : Math.max(0, Math.min(n - 1, Math.round(el.scrollLeft / w))));
+  };
+  return (
+    <div className={`cswipe${wait ? ' wait' : ''}`} aria-hidden={wait || undefined}>
+      <ol className="ccards swipe" ref={row} onScroll={onScroll} key={`${view.key}-${wait}`} aria-label={`${n} retrieved chunks, swipe for more`}>
+        {view.cards.map((c, i) => (
+          <Card key={c.id} c={c} n={i + 1} i={i} hit={view.hits?.get(c.id)} top={view.hits ? view.cards.map((x) => view.hits!.get(x.id)!.bm25) : null}
+            hot={hot === c.id} onHot={onHot} {...act} />
+        ))}
+      </ol>
+      {n > 1 && (
+        <div className="cpager mono">
+          <span>{at + 1} / {n}</span>
+          <span className="cpager-dots">
+            {view.cards.map((c, i) => (
+              <button key={c.id} className={i === at ? 'on' : ''} onClick={() => { buzz(); go(i); }} aria-label={`Card ${i + 1}: ${c.title}`} />
+            ))}
+          </span>
+          <span>{at < n - 1 ? 'swipe →' : '← back'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type StepProps = Actions & {
+  view: View; id?: string; n: string; hot: string | null; onHot: (id: string | null) => void; now?: boolean;
+};
+
+/** One question. It types itself and answers the first time it scrolls into view. */
+function Step({ view, id, n, hot, onHot, now, ...act }: StepProps) {
+  const ref = useRef<HTMLElement>(null);
+  const [seen, setSeen] = useState(!!now);
+  const [run, setRun] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (seen || !el) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }, { rootMargin: '0px 0px -30% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  const played = useMemo(() => ({ ...view, key: `${view.key}-${run}` }), [view, run]);
+  const { typed, phase, words } = usePlay(played, seen);
+  const done = phase === 'show' && words >= wordsIn(view.answer);
+  const [flash, setFlash] = useState<string | null>(null);
+  // A citation slides its card into view and lights it.
+  const cite = (cid: string) => {
+    buzz();
+    const li = ref.current?.querySelector<HTMLElement>(`.ccards.swipe [data-id="${cid}"]`);
+    const ol = li?.parentElement;
+    if (!li || !ol) return act.onOpen(chunk(cid));
+    if (flash === cid || Math.abs(ol.scrollLeft - leftOf(ol, li)) < 4) return act.onOpen(chunk(cid)); // already there: open it
+    ol.scrollTo({ left: leftOf(ol, li), behavior: smooth() });
+    const r = ol.getBoundingClientRect();
+    if (r.top < 70 || r.bottom > innerHeight) ol.scrollIntoView({ block: 'center', behavior: smooth() });
+    setFlash(cid);
+    window.setTimeout(() => setFlash((f) => (f === cid ? null : f)), 1400);
+  };
+  return (
+    <section ref={ref} id={id} className={`cstep${seen ? ' seen' : ''}`} aria-label={view.q}>
+      <h3 className="cstep-q">
+        <span className="mono">{n}</span> <span className="cq-caret">›</span>{' '}
+        <span aria-hidden="true">{typed}{phase === 'type' && seen && <span className="cstream" />}<span className="cstep-rest">{view.q.slice(typed.length)}</span></span>
+        <span className="sr-only">{view.q}</span>
+      </h3>
+      <Panel view={view} phase={phase} words={words} hot={flash ?? hot} onHot={onHot} swipe onCite={cite} {...act} />
+      {!reducedMotion() && (
+        <button className={`creplay mono${done ? '' : ' wait'}`} onClick={() => { buzz(); setRun((r) => r + 1); }} tabIndex={done ? undefined : -1} aria-hidden={!done || undefined}>↻ ask again</button>
+      )}
+    </section>
+  );
+}
 
 function Steps(act: Actions) {
   const [asked, setAsked] = useState<View | null>(null);
   const [draft, setDraft] = useState('');
   const [hot, setHot] = useState<string | null>(null);
-  const [all, setAll] = useState<Set<string>>(() => new Set());
-  const ask = (q: string) => q.trim() && setAsked(askView(q.trim()));
-  const more = (id: string) => setAll((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const jump = (cluster: string) => {
-    const ch = CHAPTERS.find((c) => c.kinds.some((k) => clusterOf(k)?.id === cluster));
-    if (ch) document.getElementById(`q-${ch.id}`)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' });
+  const [cur, setCur] = useState(-1);
+  const [zoom, setZoom] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const mapBox = useRef<HTMLDivElement>(null);
+  const askBox = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const views = useMemo(() => CHAPTERS.map(chapterView), []);
+
+  const ask = (q: string) => {
+    if (!q.trim()) return;
+    buzz();
+    setAsked(askView(q.trim()));
+    setZoom(null);
+    input.current?.blur();
   };
+  useEffect(() => {
+    if (asked) requestAnimationFrame(() => askBox.current?.scrollIntoView({ block: 'start', behavior: smooth() }));
+  }, [asked]);
+
+  // Which question is on screen, for the bar.
+  useEffect(() => {
+    const els = CHAPTERS.map((c) => document.getElementById(`q-${c.id}`)).filter(Boolean) as HTMLElement[];
+    const io = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) setCur(els.indexOf(e.target as HTMLElement));
+    }, { rootMargin: '-35% 0px -60% 0px' });
+    els.forEach((el) => io.observe(el));
+    const top = new IntersectionObserver(([e]) => { if (e.isIntersecting) setCur(-1); }, { rootMargin: '-35% 0px -60% 0px' });
+    if (mapBox.current) top.observe(mapBox.current);
+    return () => { io.disconnect(); top.disconnect(); };
+  }, []);
+
+  const toQ = (i: number) => {
+    buzz();
+    document.getElementById(`q-${CHAPTERS[i].id}`)?.scrollIntoView({ behavior: smooth() });
+  };
+  const zc = zoom ? CLUSTERS.find((c) => c.id === zoom) : null;
+  const zChunks = zoom ? DOTS.filter((d) => d.cluster === zoom).map((d) => chunk(d.id)) : [];
+  const zChapter = zoom ? CHAPTERS.findIndex((c) => c.kinds.some((k) => clusterOf(k)?.id === zoom)) : -1;
+  const lit = cur >= 0 ? views[cur] : asked;
+
   return (
-    <div className="csteps wrap">
-      <div className="csteps-map">
-        <CorpusMap view={asked} phase="show" hot={hot} onHot={setHot} onOpen={act.onOpen} onCluster={jump} small />
-        <p className="mono cmap-hint">tap a cluster to jump to its question</p>
+    <div className="csteps wrap" ref={root}>
+      <Bar cur={cur} lit={lit} onQ={toQ} onMap={() => { buzz(); mapBox.current?.scrollIntoView({ block: 'center', behavior: smooth() }); }} />
+      <div className="csteps-map" ref={mapBox}>
+        <CorpusMap view={asked} phase="show" hot={hot} onHot={setHot} onOpen={(c) => { buzz(); act.onOpen(c); }}
+          onCluster={(id) => { buzz(); setZoom(id); }} zoom={zoom} small />
+        {zc ? (
+          <div className="czoom">
+            <div className="czoom-bar mono">
+              <button onClick={() => { buzz(); setZoom(null); }}>← all clusters</button>
+              <b>{zc.label} · {zChunks.length}</b>
+              {zChapter >= 0 && <button onClick={() => toQ(zChapter)}>its question ↓</button>}
+            </div>
+            <p className="czoom-list">
+              {zChunks.map((c) => (
+                <button key={c.id} className={`k-${c.kind}`} onClick={() => { buzz(); act.onOpen(c); }}
+                  onPointerEnter={() => setHot(c.id)} onPointerLeave={() => setHot(null)}>{c.title}</button>
+              ))}
+            </p>
+          </div>
+        ) : (
+          <p className="mono cmap-hint">tap a cluster to zoom in · tap a dot to open it</p>
+        )}
       </div>
       <form className="cquery" role="search" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
         <label htmlFor="cq-m" className="mono">ask</label>
         <span className="cq-caret" aria-hidden="true">›</span>
-        <input id="cq-m" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="a tool, a company, a skill…" autoComplete="off" spellCheck={false} />
+        <input id="cq-m" ref={input} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="a tool, a company, a skill…"
+          autoComplete="off" spellCheck={false} enterKeyHint="search" />
+        {draft && <button type="button" className="cq-clear mono" onClick={() => { setDraft(''); setAsked(null); }} aria-label="Clear">✕</button>}
         <button type="submit" className="mono">↵</button>
       </form>
       <p className="cmap-try mono">
         try
         {TRY.slice(0, 4).map((t) => <button key={t} onClick={() => { setDraft(t); ask(t); }}>{t}</button>)}
       </p>
-      {asked && <Panel view={asked} phase="show" words={Infinity} hot={hot} onHot={setHot} {...act} />}
+      {asked && (
+        <div ref={askBox} className="cstep-ask">
+          <Step key={asked.key} view={asked} n="you" now hot={hot} onHot={setHot} {...act} />
+        </div>
+      )}
       {CHAPTERS.map((ch, i) => (
-        <section key={ch.id} id={`q-${ch.id}`} className="cstep" aria-labelledby={`cstep-${ch.id}`}>
-          <h3 id={`cstep-${ch.id}`} className="cstep-q"><span className="mono">0{i + 1}</span> <span className="cq-caret">›</span> {ch.q}</h3>
-          <Panel view={chapterView(ch)} phase="show" words={Infinity} hot={hot} onHot={setHot} limit={all.has(ch.id) ? undefined : 3} onMore={() => more(ch.id)} {...act} />
-        </section>
+        <Step key={ch.id} id={`q-${ch.id}`} view={views[i]} n={`0${i + 1}`} hot={hot} onHot={setHot} {...act} />
       ))}
+    </div>
+  );
+}
+
+/** Follows you down the section: where you are, a live mini map, and a tap to any question. */
+function Bar({ cur, lit, onQ, onMap }: { cur: number; lit: View | null; onQ: (i: number) => void; onMap: () => void }) {
+  const rail = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const r = rail.current;
+    const a = r?.children[cur] as HTMLElement | undefined;
+    if (r && a) r.scrollTo({ left: a.offsetLeft - r.offsetLeft - (r.clientWidth - a.offsetWidth) / 2, behavior: smooth() });
+  }, [cur]);
+  return (
+    <div className="cbar-m">
+      <button className="cmini" onClick={onMap} aria-label="Back to the map">
+        <svg viewBox={`0 0 ${MAP.w} ${MAP.h}`} aria-hidden="true">
+          {DOTS.map((d) => <circle key={d.id} cx={d.x} cy={d.y} r={d.r * 1.6} className={lit?.lit.has(d.id) ? 'on' : ''} />)}
+        </svg>
+      </button>
+      <nav className="cbar-rail" ref={rail} aria-label="Questions">
+        {CHAPTERS.map((c, i) => (
+          <button key={c.id} className={i === cur ? 'on' : ''} onClick={() => onQ(i)} aria-current={i === cur || undefined}>
+            <span className="mono">0{i + 1}</span>{c.nav}
+          </button>
+        ))}
+      </nav>
+      <i className="cbar-prog" style={{ transform: `scaleX(${(cur + 1) / CHAPTERS.length})` }} aria-hidden="true" />
     </div>
   );
 }
