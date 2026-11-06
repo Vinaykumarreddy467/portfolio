@@ -46,12 +46,13 @@ export function Nav({ theme, onTheme, onPalette }: Props) {
     <>
       <header className={`nav${scrolled ? ' scrolled' : ''}${hidden && !open ? ' hidden' : ''}`}>
         <div className="wrap nav-in">
-          <a href="#top" className="brand" aria-label="Back to top" data-cursor="top">
+          <a href="#top" className="brand" data-cursor="top">
             <img className="brand-mark" src={asset('img/avatar.webp')} alt="" width="38" height="38" />
             <span className="brand-txt">
               <b>{PROFILE.short}</b>
               <span>{PROFILE.role}</span>
             </span>
+            <span className="sr-only">, back to top</span>
           </a>
 
           <nav className="nav-links" aria-label="Sections">
@@ -64,7 +65,7 @@ export function Nav({ theme, onTheme, onPalette }: Props) {
 
           <div className="nav-tools">
             <span className="clock" aria-label={`Local time in Bengaluru ${time}`}>BLR <b>{time}</b> IST</span>
-            <button className="icon-btn k-btn" onClick={onPalette} aria-label="Open command menu">
+            <button className="icon-btn k-btn" onClick={onPalette} aria-label={`Open command menu, ${isMac ? '⌘' : 'Ctrl'} K`}>
               <span className="kbd">{isMac ? '⌘' : 'Ctrl'} K</span>
             </button>
             <button className="icon-btn" onClick={onTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>

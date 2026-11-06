@@ -23,6 +23,53 @@ const NOTES = [
   { id: 'watch', at: [428, 608], y: 600, k: 'watch', text: null },
 ] as const;
 
+/** Phones and tablets: no room beside him, so the notes sit on him as numbered dots and take turns. */
+const narrowQuery = '(max-width: 1100px)';
+// Where each bubble goes so it never covers his face: over the name, beside the face, on the tee, beside the watch.
+const SIDE = { cap: 'left', lens: 'right', chest: 'down', watch: 'left' } as const;
+function PhoneNotes({ show, time }: { show: boolean; time: string }) {
+  const [narrow, setNarrow] = useState(() => matchMedia(narrowQuery).matches);
+  const [at, setAt] = useState(0);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const m = matchMedia(narrowQuery);
+    const f = () => setNarrow(m.matches);
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
+  // Take turns while he stands still, unless a dot was tapped.
+  useEffect(() => {
+    if (!narrow || !show || pinned || reducedMotion()) return;
+    const id = window.setInterval(() => setAt((i) => (i + 1) % NOTES.length), 3600);
+    return () => clearInterval(id);
+  }, [narrow, show, pinned]);
+  useEffect(() => { if (!show) setPinned(false); }, [show]);
+  if (!narrow) return null;
+  const n = NOTES[at];
+  const x = (n.at[0] / 520) * 100;
+  const y = (n.at[1] / 820) * 100;
+  const tap = (i: number) => {
+    try { navigator.vibrate?.(8); } catch { /* not allowed */ }
+    if (pinned && i === at) { setPinned(false); return; }
+    setAt(i);
+    setPinned(true);
+  };
+  return (
+    <div className={`mnotes${show ? ' show' : ''}`} aria-hidden={!show} inert={!show}>
+      {NOTES.map((d, i) => (
+        <button key={d.id} className={`mnote-dot${i === at ? ' on' : ''}`} style={{ left: `${(d.at[0] / 520) * 100}%`, top: `${(d.at[1] / 820) * 100}%`, ['--d' as string]: `${0.1 + i * 0.1}s` }}
+          onClick={() => tap(i)} aria-label={`Note ${i + 1}: ${d.k}`} aria-pressed={pinned && i === at}>
+          <span className="mono">{i + 1}</span>
+        </button>
+      ))}
+      <p key={n.id} className={`mnote ${SIDE[n.id]}`} role="status" style={{ ['--x' as string]: `${x}%`, ['--y' as string]: `${y}%` }}>
+        <span className="mono">0{at + 1} / {n.k}{pinned ? ' · pinned' : ''}</span>
+        <span>{n.text ?? <>Running on <b>BLR {time}</b> IST</>}</span>
+      </p>
+    </div>
+  );
+}
+
 function Dial({ ring }: { ring: RefObject<SVGGElement | null> }) {
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   return (
@@ -146,6 +193,39 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
     return () => { el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(raf); };
   }, [look]);
 
+  // Phones: tilt the phone for the same depth, and in 3D he follows the tilt a little.
+  const is3d = useRef(false);
+  is3d.current = mode === '3d';
+  useEffect(() => {
+    const el = hero.current;
+    if (!el || finePointer() || reducedMotion() || typeof DeviceOrientationEvent === 'undefined') return;
+    const t = { x: 0, y: 0 };
+    const c = { x: 0, y: 0 };
+    let raf = 0;
+    let base: number | null = null; // how he holds the phone, taken from the first reading
+    const tick = () => {
+      c.x += (t.x - c.x) * 0.1;
+      c.y += (t.y - c.y) * 0.1;
+      el.style.setProperty('--px', c.x.toFixed(4));
+      el.style.setProperty('--py', c.y.toFixed(4));
+      raf = Math.abs(t.x - c.x) + Math.abs(t.y - c.y) > 0.001 ? requestAnimationFrame(tick) : 0;
+    };
+    const onTilt = (e: DeviceOrientationEvent) => {
+      if (e.gamma == null || e.beta == null) return;
+      base ??= e.beta;
+      t.x = Math.max(-1, Math.min(1, e.gamma / 25));
+      t.y = Math.max(-1, Math.min(1, (e.beta - base) / 25));
+      if (!raf) raf = requestAnimationFrame(tick);
+      if (is3d.current) look(t.x * 0.6, t.y);
+    };
+    addEventListener('deviceorientation', onTilt);
+    // iOS asks first, and only from a tap.
+    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    const ask = () => { D.requestPermission?.().catch(() => {}); };
+    if (D.requestPermission) el.addEventListener('touchend', ask, { once: true });
+    return () => { removeEventListener('deviceorientation', onTilt); el.removeEventListener('touchend', ask); cancelAnimationFrame(raf); look(0, 0); };
+  }, [look]);
+
   // Scroll: --sp drives the exit parallax. On a pinned desktop hero it also scrubs the
   // turnaround: the camera pulls back to the full figure while he makes one full turn.
   useEffect(() => {
@@ -204,11 +284,12 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
             data-cursor="drag"
             {...tt.bind}
           />
+          <PhoneNotes show={showNotes} time={time} />
         </div>
       </div>
 
       <div className="stage stage-notes">
-        <div className={`notes${showNotes ? ' show' : ''}`} aria-hidden={!showNotes}>
+        <div className={`notes${showNotes ? ' show' : ''}`} aria-hidden={!showNotes} inert={!showNotes}>
           <svg viewBox="0 0 860 820" preserveAspectRatio="none" aria-hidden="true">
             {NOTES.map((n, i) => (
               <g key={n.id} style={{ ['--d' as string]: `${0.1 + i * 0.12}s` }}>

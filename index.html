@@ -15,7 +15,11 @@
     <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- fonts load without holding up the first paint -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" /></noscript>
+    <link rel="canonical" href="https://vinaykumarreddyportfolio.vercel.app/" />
     <script>
       var d = document.documentElement;
       d.dataset.theme = 'light';
@@ -26,6 +30,11 @@
         var tee = localStorage.getItem('vkr-tee');
         if (/^(crimson|cobalt|forest|marigold)$/.test(tee)) d.dataset.tee = tee;
       } catch (e) { /* storage unavailable */ }
+      // the hero photo is the biggest thing on screen: start it now, not after the app boots
+      var l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'image'; l.setAttribute('fetchpriority', 'high');
+      l.href = '%BASE_URL%img/' + d.dataset.tee + '/t000.webp';
+      document.head.appendChild(l);
     </script>
   </head>
   <body>

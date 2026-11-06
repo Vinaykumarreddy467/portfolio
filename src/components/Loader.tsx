@@ -18,7 +18,7 @@ export function Loader({ onDone }: { onDone: () => void }) {
     const dur = 1700;
     let raf = 0;
     const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / dur);
+      const p = Math.min(1, Math.max(0, (t - t0) / dur)); // a frame's timestamp can come before t0
       setN(Math.round(100 * (1 - Math.pow(1 - p, 3))));
       if (p < 1) raf = requestAnimationFrame(tick);
       else {
@@ -30,7 +30,7 @@ export function Loader({ onDone }: { onDone: () => void }) {
     return () => cancelAnimationFrame(raf);
   }, [onDone]);
 
-  const idx = Math.min(FRAMES.length - 1, Math.floor(n / (100 / FRAMES.length)));
+  const idx = Math.max(0, Math.min(FRAMES.length - 1, Math.floor(n / (100 / FRAMES.length))));
   return (
     <div className={`loader${out ? ' out' : ''}`} role="status" aria-label="Loading">
       <div className="loader-lines">
