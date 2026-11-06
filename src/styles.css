@@ -132,6 +132,7 @@ ul, ol { padding: 0; list-style: none; }
   position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 120;
   background: var(--accent); transform-origin: 0 50%; transform: scaleX(0);
 }
+@media (max-width: 1100px) { .progress { height: 3px; top: env(safe-area-inset-top, 0px); box-shadow: 0 0 8px var(--accent); } }
 
 /* Reveal */
 [data-reveal] { opacity: 0; transform: translateY(28px); transition: opacity 1.1s var(--ease), transform 1.1s var(--ease); transition-delay: var(--d, 0s); }
@@ -821,7 +822,10 @@ body:has(.nav.scrolled:not(.hidden)) .cbar-m { top: var(--navh, 63px); }
 }
 .cbar-rail button .mono { font-size: 10px; }
 .cbar-rail button.on { color: var(--c-bg); background: var(--c-acc); }
-.cbar-prog { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--c-acc); transform-origin: left; transition: transform 0.6s var(--ease); }
+.cbar-prog { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--c-acc); transform-origin: left; transform: scaleX(var(--sp, 0)); box-shadow: 0 0 10px var(--c-acc); }
+/* Phones: each question's context-window meter fills as the question rises into view, and empties as you scroll back. */
+.csteps .cmeter { height: 4px; }
+.csteps .cmeter b { transform-origin: left; transform: scaleX(var(--fill, 1)); transition: width 0.9s var(--ease); }
 .csteps .cstep { scroll-margin-top: 128px; }
 .cstep-ask { scroll-margin-top: 128px; }
 .cstep-ask .cstep { border-top-color: var(--c-acc); }
@@ -858,6 +862,6 @@ body:has(.nav.scrolled:not(.hidden)) .cbar-m { top: var(--navh, 63px); }
 .cans-hold > * { grid-area: 1 / 1; }
 .cans-ghost { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
-  .cmap-z, .cbar-prog, .cbar-m { transition: none; }
+  .cmap-z, .cbar-m { transition: none; }
   .cswipe.wait .ccard, .czoom, .czoom-list button { animation: none; }
 }

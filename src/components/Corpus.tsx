@@ -636,6 +636,36 @@ function Steps(act: Actions) {
     return () => { io.disconnect(); top.disconnect(); };
   }, []);
 
+  // Bars that follow the finger: --sp is how far through the questions you are (the bar's line);
+  // each question's --fill grows as it rises into view (its context-window meter).
+  useEffect(() => {
+    let raf = 0;
+    const on = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const box = root.current;
+        if (!box) return;
+        const clamp = (v: number) => Math.max(0, Math.min(1, v));
+        const steps = box.querySelectorAll<HTMLElement>('.cstep');
+        const first = document.getElementById(`q-${CHAPTERS[0].id}`);
+        const last = document.getElementById(`q-${CHAPTERS[CHAPTERS.length - 1].id}`);
+        if (first && last) {
+          const a = first.getBoundingClientRect().top;
+          const b = last.getBoundingClientRect().bottom;
+          box.style.setProperty('--sp', clamp((innerHeight * 0.45 - a) / Math.max(1, b - a - innerHeight * 0.1)).toFixed(4));
+        }
+        steps.forEach((el) => {
+          const t = el.getBoundingClientRect().top;
+          el.style.setProperty('--fill', clamp((innerHeight - t) / (innerHeight * 0.55)).toFixed(3));
+        });
+      });
+    };
+    on();
+    addEventListener('scroll', on, { passive: true });
+    addEventListener('resize', on);
+    return () => { removeEventListener('scroll', on); removeEventListener('resize', on); cancelAnimationFrame(raf); };
+  }, [asked]);
+
   const toQ = (i: number) => {
     buzz();
     document.getElementById(`q-${CHAPTERS[i].id}`)?.scrollIntoView({ behavior: smooth() });
@@ -715,7 +745,7 @@ function Bar({ cur, lit, onQ, onMap }: { cur: number; lit: View | null; onQ: (i:
           </button>
         ))}
       </nav>
-      <i className="cbar-prog" style={{ transform: `scaleX(${(cur + 1) / CHAPTERS.length})` }} aria-hidden="true" />
+      <i className="cbar-prog" aria-hidden="true" />
     </div>
   );
 }
