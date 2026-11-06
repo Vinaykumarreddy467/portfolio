@@ -356,6 +356,36 @@ ul, ol { padding: 0; list-style: none; }
 .note b { color: var(--fg); font-weight: 600; }
 .note .cite { pointer-events: auto; }
 
+/* Phones: the notes sit on him as numbered dots and take turns in one bubble. */
+.mnotes { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.mnote-dot {
+  position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; padding: 0; border: 0; border-radius: 50%;
+  background: none; display: grid; place-items: center; cursor: pointer; pointer-events: none; -webkit-tap-highlight-color: transparent;
+  opacity: 0; transform: scale(0.4); transition: opacity 0.3s, transform 0.3s var(--ease);
+}
+.mnote-dot .mono {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; line-height: 1;
+  background: var(--accent); color: var(--bg); box-shadow: 0 0 0 2px var(--bg); transition: transform 0.3s var(--ease);
+}
+.mnote-dot::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 1px solid var(--accent); opacity: 0; }
+.mnote-dot.on .mono { transform: scale(1.25); }
+.mnote-dot.on::before { animation: notePing 2.4s var(--ease) infinite; }
+.mnotes.show .mnote-dot { opacity: 1; transform: none; pointer-events: auto; transition: opacity 0.5s var(--ease) var(--d), transform 0.6s var(--ease) var(--d); }
+.mnote {
+  position: absolute; top: var(--y); left: clamp(4px, calc(var(--x) - 110px), calc(100% - 224px)); width: 220px; margin: 22px 0 0;
+  display: grid; gap: 3px; padding: 8px 12px; border: 1px solid var(--line-2); border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font-size: 13.5px; line-height: 1.3; color: var(--fg-2); pointer-events: auto;
+  opacity: 0; transform: translateY(-6px); transition: opacity 0.25s, transform 0.4s var(--ease);
+}
+.mnote .mono { font-size: 10px; color: var(--accent); }
+.mnote b { color: var(--fg); font-weight: 600; }
+.mnote.right { margin: 0; left: calc(var(--x) + 24px); width: min(150px, calc(100% - var(--x) - 28px)); translate: 0 -50%; }
+.mnote.left { margin: 0; left: auto; right: calc(100% - var(--x) + 24px); width: min(150px, calc(var(--x) - 28px)); translate: 0 -50%; }
+.mnotes.show .mnote { opacity: 1; transform: none; animation: mnoteIn 0.5s var(--ease); }
+@keyframes mnoteIn { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .mnote-dot.on::before, .mnotes.show .mnote { animation: none; } }
+
 .hero-ui {
   position: relative; z-index: 3; min-height: inherit; display: flex; flex-direction: column; justify-content: space-between;
   padding-top: 96px; padding-bottom: clamp(24px, 4svh, 44px); pointer-events: none;

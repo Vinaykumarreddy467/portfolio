@@ -23,6 +23,53 @@ const NOTES = [
   { id: 'watch', at: [428, 608], y: 600, k: 'watch', text: null },
 ] as const;
 
+/** Phones and tablets: no room beside him, so the notes sit on him as numbered dots and take turns. */
+const narrowQuery = '(max-width: 1100px)';
+// Where each bubble goes so it never covers his face: over the name, beside the face, on the tee, beside the watch.
+const SIDE = { cap: 'left', lens: 'right', chest: 'down', watch: 'left' } as const;
+function PhoneNotes({ show, time }: { show: boolean; time: string }) {
+  const [narrow, setNarrow] = useState(() => matchMedia(narrowQuery).matches);
+  const [at, setAt] = useState(0);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const m = matchMedia(narrowQuery);
+    const f = () => setNarrow(m.matches);
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
+  // Take turns while he stands still, unless a dot was tapped.
+  useEffect(() => {
+    if (!narrow || !show || pinned || reducedMotion()) return;
+    const id = window.setInterval(() => setAt((i) => (i + 1) % NOTES.length), 3600);
+    return () => clearInterval(id);
+  }, [narrow, show, pinned]);
+  useEffect(() => { if (!show) setPinned(false); }, [show]);
+  if (!narrow) return null;
+  const n = NOTES[at];
+  const x = (n.at[0] / 520) * 100;
+  const y = (n.at[1] / 820) * 100;
+  const tap = (i: number) => {
+    try { navigator.vibrate?.(8); } catch { /* not allowed */ }
+    if (pinned && i === at) { setPinned(false); return; }
+    setAt(i);
+    setPinned(true);
+  };
+  return (
+    <div className={`mnotes${show ? ' show' : ''}`} aria-hidden={!show} inert={!show}>
+      {NOTES.map((d, i) => (
+        <button key={d.id} className={`mnote-dot${i === at ? ' on' : ''}`} style={{ left: `${(d.at[0] / 520) * 100}%`, top: `${(d.at[1] / 820) * 100}%`, ['--d' as string]: `${0.1 + i * 0.1}s` }}
+          onClick={() => tap(i)} aria-label={`Note ${i + 1}: ${d.k}`} aria-pressed={pinned && i === at}>
+          <span className="mono">{i + 1}</span>
+        </button>
+      ))}
+      <p key={n.id} className={`mnote ${SIDE[n.id]}`} role="status" style={{ ['--x' as string]: `${x}%`, ['--y' as string]: `${y}%` }}>
+        <span className="mono">0{at + 1} / {n.k}{pinned ? ' · pinned' : ''}</span>
+        <span>{n.text ?? <>Running on <b>BLR {time}</b> IST</>}</span>
+      </p>
+    </div>
+  );
+}
+
 function Dial({ ring }: { ring: RefObject<SVGGElement | null> }) {
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   return (
@@ -237,6 +284,7 @@ export function Hero({ tee, onTee, onCopy, ready }: Props) {
             data-cursor="drag"
             {...tt.bind}
           />
+          <PhoneNotes show={showNotes} time={time} />
         </div>
       </div>
 
