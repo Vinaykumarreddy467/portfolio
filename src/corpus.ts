@@ -306,7 +306,7 @@ export const CHAPTERS: Chapter[] = [
     cards: ['p-me', 'p-mission', 'p-now', 'm-0', 'm-2', 'p-open'],
     answer: [
       { b: 'A Gen AI engineer in Bengaluru' }, ' ', { cite: 'p-me' }, ' who makes LLMs grounded, measurable and actually useful in production ', { cite: 'p-mission' },
-      '. Right now: Software Engineer Intern at Lifetrenz ', { cite: 'p-now' }, '. 48 original repos shipped ', { cite: 'm-0' },
+      '. Right now: Software Engineer Intern at Lifetrenz ', { cite: 'p-now' }, `. ${METRICS[0].value} original repos on GitHub `, { cite: 'm-0' },
       ', and 2,200+ Infosys.com pages made accessible along the way ', { cite: 'm-2' }, '. Open to Gen AI / AI Engineer roles ', { cite: 'p-open' }, '.',
     ],
   },
@@ -317,10 +317,11 @@ export const CHAPTERS: Chapter[] = [
     kinds: ['project'],
     cards: PROJECTS.map((p) => pr(p.id)),
     answer: [
-      { b: 'Seven systems, all built to answer from evidence.' }, ' Context Layer gives coding agents memory that survives model and platform switches ', { cite: pr('context-layer') },
+      { b: `${['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][PROJECTS.length] ?? PROJECTS.length} systems, each one built to show its evidence.` }, ' Context Layer gives coding agents memory that survives model and platform switches ', { cite: pr('context-layer') },
       '; the knowledge base answers only from retrieved, role-filtered rows ', { cite: pr('kbms') }, '; the Redis limiter holds a limit of 100 across two JVMs ', { cite: pr('redis') },
       '. Two hackathon builds fused retrievers ', { cite: pr('rag') }, ' and fanned out agents in parallel ', { cite: pr('travel') },
-      ', the task manager keeps LLM-written tests behind human approval ', { cite: pr('taskqa') }, ', and the research assistant reads many URLs as one document ', { cite: pr('research') }, '.',
+      ', the task manager keeps LLM-written tests behind human approval ', { cite: pr('taskqa') }, ', and the research assistant reads many URLs as one document ', { cite: pr('research') },
+      '. The newest two: offline dictation that benchmarks its own word error rate ', { cite: pr('voice') }, ' and a Snowflake dashboard that traces a refund spike to one release ', { cite: pr('quickbite') }, '.',
     ],
   },
   {

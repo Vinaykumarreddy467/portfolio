@@ -424,7 +424,7 @@ function Panel({ view, phase, words, hot, onHot, refCard, swipe, onCite, ...act 
         </p>
       </header>
       {shown && !swipe && (
-        <ol className="ccards" key={view.key} data-many={view.cards.length > 5 || undefined}>
+        <ol className="ccards" key={view.key} data-many={view.cards.length > 5 || undefined} data-dense={view.cards.length > 7 || undefined}>
           {view.cards.map((c, i) => (
             <Card key={c.id} c={c} n={i + 1} i={i} hit={view.hits?.get(c.id)} top={view.hits ? view.cards.map((x) => view.hits!.get(x.id)!.bm25) : null}
               hot={hot === c.id} onHot={onHot} refEl={refCard?.(c.id)} {...act} />
