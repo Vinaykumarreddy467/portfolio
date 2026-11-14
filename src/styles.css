@@ -865,3 +865,34 @@ body:has(.nav.scrolled:not(.hidden)) .cbar-m { top: var(--navh, 63px); }
   .cmap-z, .cbar-m { transition: none; }
   .cswipe.wait .ccard, .czoom, .czoom-list button { animation: none; }
 }
+
+/* The search, graded */
+.corpus-lede dd a { color: inherit; border-bottom: 1px solid var(--c-line-2); }
+.cevals { padding-top: clamp(72px, 12vh, 140px); padding-bottom: clamp(72px, 12vh, 140px); border-top: 1px solid var(--c-line); }
+.cevals h3 { font-size: clamp(34px, 4.6vw, 76px); line-height: 0.95; letter-spacing: -0.04em; font-weight: 600; margin: 0; }
+.cevals h3 .serif { color: var(--c-acc); font-weight: 400; letter-spacing: -0.03em; }
+.cevals-lede { max-width: 620px; margin: 28px 0 0; color: var(--c-fg-2); font-size: clamp(15px, 1.15vw, 18px); line-height: 1.55; }
+.cevals-tiles { list-style: none; padding: 0; margin: clamp(32px, 5vh, 56px) 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--c-line); border: 1px solid var(--c-line); border-radius: 14px; overflow: hidden; }
+.cevals-tiles li { background: var(--c-bg-2); padding: clamp(18px, 2vw, 28px); display: grid; gap: 8px; animation: cevals-in 0.6s var(--ease) both; animation-delay: calc(var(--i) * 70ms); }
+.cevals-tiles b { font-size: clamp(38px, 4.4vw, 72px); line-height: 1; letter-spacing: -0.04em; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cevals-tiles .mono { font-size: 11px; color: var(--c-acc); }
+.cevals-tiles small { font-size: 13px; color: var(--c-mute); line-height: 1.4; }
+@keyframes cevals-in { from { opacity: 0; transform: translateY(10px); } }
+.cevals-run { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 18px 0 0; font-size: 11px; color: var(--c-mute); }
+.cevals-run button { font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--c-fg); background: none; border: 1px solid var(--c-line-2); border-radius: 999px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
+.cevals-run button:hover, .cevals-run button:focus-visible { border-color: var(--c-acc); color: var(--c-acc); }
+.cevals-all { margin-top: 28px; border-top: 1px solid var(--c-line); }
+.cevals-all summary { cursor: pointer; padding: 16px 0; font-size: 11px; color: var(--c-fg-2); min-height: 44px; }
+.cevals-all summary:hover { color: var(--c-acc); }
+.cevals-all ol { list-style: none; margin: 0; padding: 0; }
+.cevals-all li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 150px; gap: 16px; padding: 10px 0; border-top: 1px solid var(--c-line); font-size: 14px; align-items: baseline; }
+.cevals-all .want { color: var(--c-mute); font-size: 10.5px; text-transform: none; letter-spacing: 0; }
+.cevals-all .res { font-size: 10.5px; color: var(--ok); text-align: right; }
+.cevals-all .low .res { color: var(--c-fg-2); }
+.cevals-all .bad .res { color: var(--c-acc); }
+@media (max-width: 760px) {
+  .cevals-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cevals-all li { grid-template-columns: minmax(0, 1fr) auto; }
+  .cevals-all .want { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .cevals-tiles li { animation: none; } }

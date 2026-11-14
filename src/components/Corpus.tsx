@@ -3,8 +3,10 @@ import {
   CHAPTERS, CHUNKS, CLUSTERS, DOTS, MAP, chunk, clusterOf, dotOf, freeAnswer, search, tokensOf,
   type Chapter, type Chunk, type Hit, type Kind, type Seg,
 } from '../corpus';
+import { askModel, parseAnswer } from '../ask';
 import { PROFILE, SOURCES, pose, sourceIndex } from '../data';
 import { reducedMotion, useClock } from '../hooks';
+import { Evals } from './Evals';
 import { ArrowUpRight } from './ui';
 
 type View = {
@@ -17,6 +19,8 @@ type View = {
   hits?: Map<string, Hit>;
   ms?: number;
   typed: boolean; // a guided question types itself out; a visitor's own doesn't
+  pending?: boolean; // retrieval is done, the model is still writing
+  ai?: { ms: number; kept: number; total: number; sources: number }; // a model wrote this, and every claim passed the citation check
 };
 
 type Actions = { onOpen: (c: Chunk) => void; onCopy: () => void; tee: string };
@@ -50,6 +54,26 @@ const askView = (q: string): View => {
     typed: false,
   };
 };
+
+/** A visitor's question: retrieval shows at once, then a model answers from those chunks. Any failure keeps the retrieval-only answer. */
+function useAsked() {
+  const [asked, setAsked] = useState<View | null>(null);
+  const seq = useRef(0);
+  const ask = useCallback((q: string) => {
+    const v = askView(q);
+    const mine = ++seq.current;
+    if (!v.cards.length) return setAsked(v);
+    setAsked({ ...v, pending: true });
+    const ids = v.cards.map((c) => c.id);
+    askModel(q, ids).then((r) => {
+      if (seq.current !== mine) return;
+      const p = r && parseAnswer(r.text, ids);
+      setAsked(p && r ? { ...v, answer: p.segs, ai: { ms: r.ms, kept: p.kept, total: p.total, sources: p.sources } } : { ...v });
+    });
+  }, []);
+  const clear = useCallback(() => { seq.current += 1; setAsked(null); }, []);
+  return [asked, ask, clear] as const;
+}
 
 // Group cards point at the dots they gather.
 const GROUP_DOTS: Record<string, string> = { 'g-stack': 'tl-', 'g-certs': 'ct-', 'g-rooms': 'rm-', 'g-writing': 'wr-' };
@@ -107,11 +131,12 @@ export function Corpus({ tee, onCopy }: { tee: string; onCopy: () => void }) {
             <div><dt>chunks</dt><dd>{CHUNKS.length}</dd></div>
             <div><dt>clusters</dt><dd>{CLUSTERS.length}</dd></div>
             <div><dt>questions</dt><dd>{CHAPTERS.length}</dd></div>
-            <div><dt>model</dt><dd>none</dd></div>
+            <div><dt>graded</dt><dd><a href="#evals">below ↓</a></dd></div>
           </dl>
         </div>
       </header>
       {wide ? <Stage {...act} /> : <Steps {...act} />}
+      <Evals />
       {open && <Inspector c={open} onClose={() => setOpen(null)} {...act} />}
     </section>
   );
@@ -127,7 +152,7 @@ function Stage(act: Actions) {
   const input = useRef<HTMLInputElement>(null);
   const cardEls = useRef(new Map<string, HTMLElement>());
   const [ci, setCi] = useState(0);
-  const [asked, setAsked] = useState<View | null>(null);
+  const [asked, askIt, clearAsked] = useAsked();
   const [draft, setDraft] = useState<string | null>(null);
   const [hot, setHot] = useState<string | null>(null);
   const [size, setSize] = useState(0);
@@ -154,14 +179,14 @@ function Stage(act: Actions) {
   }, []);
 
   // Scrolling to another question drops the visitor's own.
-  useEffect(() => { setAsked(null); setDraft(null); }, [ci]);
+  useEffect(() => { clearAsked(); setDraft(null); }, [ci, clearAsked]);
 
   const view = useMemo(() => asked ?? chapterView(CHAPTERS[ci]), [asked, ci]);
   const { typed, phase, words } = usePlay(view);
 
   const ask = (q: string) => {
     if (!q.trim()) return;
-    setAsked(askView(q.trim()));
+    askIt(q.trim());
   };
 
   // Threads from each retrieved dot to its card, once the cards are in.
@@ -209,16 +234,16 @@ function Stage(act: Actions) {
               id="cq"
               ref={input}
               value={draft ?? typed}
-              placeholder="type a question, a tool, a company…"
+              placeholder="ask me anything about my work…"
               autoComplete="off"
               spellCheck={false}
               onFocus={() => setDraft((d) => d ?? '')}
               onBlur={() => setDraft((d) => (d ? d : null))}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(null); setAsked(null); input.current?.blur(); } }}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(null); clearAsked(); input.current?.blur(); } }}
             />
             {phase === 'type' && draft === null && <span className="cq-cursor" aria-hidden="true" />}
-            <button type="submit" className="mono">retrieve ↵</button>
+            <button type="submit" className="mono">ask ↵</button>
           </form>
           <nav className="crail" aria-label="Questions">
             {CHAPTERS.map((c, i) => (
@@ -384,6 +409,7 @@ function Panel({ view, phase, words, hot, onHot, refCard, swipe, onCite, ...act 
   const shown = phase === 'show';
   const tok = shown ? view.cards.reduce((s, c) => s + tokensOf(c), 0) : 0;
   const num = new Map(view.cards.map((c, i) => [c.id, i + 1]));
+  const writing = <span className="cthink mono">writing from {view.cards.length} source{view.cards.length === 1 ? '' : 's'}…</span>;
   return (
     <div className="cctx" aria-live="polite">
       <header className="cctx-head">
@@ -393,7 +419,8 @@ function Panel({ view, phase, words, hot, onHot, refCard, swipe, onCite, ...act 
         <p className="mono cfilter">
           {view.kinds
             ? <>filter: kind ∈ {'{'}{view.kinds.join(', ')}{'}'} · {view.lit.size} of {CHUNKS.length} chunks</>
-            : <>bm25 + trigram vectors · rrf k=60 · {view.cards.length} hits in {(view.ms ?? 0).toFixed(1)} ms</>}
+            : <>bm25 + trigram vectors · rrf k=60 · {view.cards.length} hits in {(view.ms ?? 0).toFixed(1)} ms
+              {view.ai && <> · model {Math.round(view.ai.ms)} ms · {view.ai.kept}/{view.ai.total} claims cited</>}</>}
         </p>
       </header>
       {shown && !swipe && (
@@ -407,15 +434,17 @@ function Panel({ view, phase, words, hot, onHot, refCard, swipe, onCite, ...act 
       {swipe && !!view.cards.length && <Swipe view={view} wait={!shown} hot={hot} onHot={onHot} {...act} />}
       {shown && !view.cards.length && <p className="cempty mono">0 chunks retrieved</p>}
       <div className="cans">
-        <span className="mono">answer{view.typed ? '' : ' · retrieval only'}</span>
+        <span className="mono">
+          {view.typed ? 'answer' : view.pending ? 'answer · writing' : view.ai ? `answer · AI, speaking for Vinay · ${view.ai.sources} source${view.ai.sources === 1 ? '' : 's'}` : 'answer · retrieval only'}
+        </span>
         {swipe ? (
           // phones: the whole answer holds its space while it streams, so nothing below jumps
           <p className="cans-hold">
             <span className="cans-ghost" aria-hidden="true"><AnswerText segs={view.answer} words={Infinity} num={num} onHot={onHot} onOpen={act.onOpen} /></span>
-            <span>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={(c) => (onCite ? onCite(c.id) : act.onOpen(c))} /> : <span className="cthink mono">retrieving…</span>}</span>
+            <span>{view.pending ? writing : shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={(c) => (onCite ? onCite(c.id) : act.onOpen(c))} /> : <span className="cthink mono">retrieving…</span>}</span>
           </p>
         ) : (
-          <p>{shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={act.onOpen} /> : <span className="cthink mono">retrieving…</span>}</p>
+          <p>{view.pending ? writing : shown ? <AnswerText segs={view.answer} words={words} num={num} onHot={onHot} onOpen={act.onOpen} /> : <span className="cthink mono">retrieving…</span>}</p>
         )}
       </div>
     </div>
@@ -602,7 +631,7 @@ function Step({ view, id, n, hot, onHot, now, ...act }: StepProps) {
 }
 
 function Steps(act: Actions) {
-  const [asked, setAsked] = useState<View | null>(null);
+  const [asked, askIt, clearAsked] = useAsked();
   const [draft, setDraft] = useState('');
   const [hot, setHot] = useState<string | null>(null);
   const [cur, setCur] = useState(-1);
@@ -616,7 +645,7 @@ function Steps(act: Actions) {
   const ask = (q: string) => {
     if (!q.trim()) return;
     buzz();
-    setAsked(askView(q.trim()));
+    askIt(q.trim());
     setZoom(null);
     input.current?.blur();
   };
@@ -702,9 +731,9 @@ function Steps(act: Actions) {
       <form className="cquery" role="search" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
         <label htmlFor="cq-m" className="mono">ask</label>
         <span className="cq-caret" aria-hidden="true">›</span>
-        <input id="cq-m" ref={input} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="a tool, a company, a skill…"
+        <input id="cq-m" ref={input} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="ask me about my work…"
           autoComplete="off" spellCheck={false} enterKeyHint="search" />
-        {draft && <button type="button" className="cq-clear mono" onClick={() => { setDraft(''); setAsked(null); }} aria-label="Clear">✕</button>}
+        {draft && <button type="button" className="cq-clear mono" onClick={() => { setDraft(''); clearAsked(); }} aria-label="Clear">✕</button>}
         <button type="submit" className="mono">↵</button>
       </form>
       <p className="cmap-try mono">

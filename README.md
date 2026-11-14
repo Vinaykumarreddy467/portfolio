@@ -2,7 +2,7 @@
 
 **A portfolio that cites its sources.** I build grounded LLM systems, so every claim on this site carries a footnote that links to the repository that proves it.
 
-Live: https://portfolio-pink-gamma-k8pt11kzv1.vercel.app
+Live: https://vinaykumarreddyportfolio.vercel.app
 
 ## What's inside
 
@@ -11,7 +11,8 @@ Live: https://portfolio-pink-gamma-k8pt11kzv1.vercel.app
 - **A 3D model of me.** The hero is a real-time WebGL model reconstructed from an 8-photo turnaround, not a video or a sprite. Drag to orbit, with inertia, and he settles on the nearest 45° photo. He leans toward your cursor and a light follows it. On desktop, scrolling scrubs a full turn while the camera pulls back from the close-up to the whole figure. A dial tracks the angle. At rest the call-out lines draw onto him: cap, lenses, core, and a watch with live Bengaluru time. Browsers without WebGL2 get the photo turntable instead.
 - **Dye the tee.** Four swatches re-dye the tee (crimson, cobalt, forest, marigold), with a dye line rising up the 3D model from the hem. The whole site's accent colour follows, animated through `@property`. The choice is remembered per visitor.
 - **Kinetic headline.** "I build AI that…" flips through *cites its sources*, *reasons in graphs*, *remembers context* and *measures itself*. Each one is backed by a project.
-- **Ask the corpus.** Below the hero, the site is a small retrieval system over my work. Every fact in `data.ts` is a chunk (about a hundred), laid out as glowing dots in seven clusters on a dark map. Scrolling steps through seven guided questions (who, shipped, method, history, toolbox, proof, contact): each lights its chunks, threads them into a context window with a token budget, and streams an answer with `[n]` citations. Visitors can ask their own: BM25 plus character-trigram vectors, fused with reciprocal rank fusion, in the browser. No model writes anything, and a question nothing matches gets an honest miss. Any card or dot opens the full chunk. Phones get the same questions stacked, and each one types itself and streams its answer as it scrolls in. A sticky bar with a live mini map follows along, the map zooms into a cluster on tap, the cards swipe, and a citation slides its card into view. Tilting the phone moves the hero.
+- **Ask the corpus.** Below the hero, the site is a small retrieval system over my work. Every fact in `data.ts` is a chunk (about a hundred), laid out as glowing dots in seven clusters on a dark map. Scrolling steps through seven guided questions (who, shipped, method, history, toolbox, proof, contact): each lights its chunks, threads them into a context window with a token budget, and streams an answer with `[n]` citations. Visitors can ask their own: BM25 plus character-trigram vectors, fused with reciprocal rank fusion, in the browser. The seven guided answers are written by hand. A typed question goes to a small open-weight model (Groq's free tier, through `api/ask.ts`) that sees only the retrieved chunks and answers as me; the page then deletes any claim that doesn't cite a retrieved chunk, and falls back to retrieval-only if the model is slow, unavailable or not configured. A question nothing matches gets an honest miss. Any card or dot opens the full chunk. Phones get the same questions stacked, and each one types itself and streams its answer as it scrolls in. A sticky bar with a live mini map follows along, the map zooms into a cluster on tap, the cards swipe, and a citation slides its card into view. Tilting the phone moves the hero.
+- **The search, graded.** Under the corpus, 60 test questions ([`src/golden.ts`](src/golden.ts)) run against the search in the visitor's browser and report hit rate, recall@6, MRR and honest misses, with every question listed. The same run gates CI: a change that lowers the scores fails the build.
 - **References and the ⌘K palette.** Sources link to their GitHub repositories; the palette jumps to any question and can dye the tee too.
 - **Footer.** The back view walks off behind the footer name.
 - **Light and dark themes**, remembered per visitor. The first visit follows the OS setting.
@@ -41,11 +42,16 @@ python scripts/turnaround.py path/to/turnaround/
 
 Everything (profile, photos and tee colours, projects, journey, metrics, certifications and sources) lives in one file: [`src/data.ts`](src/data.ts). [`src/corpus.ts`](src/corpus.ts) turns it into chunks, holds the search, the map layout and the guided questions with their written answers.
 
+## The AI answers
+
+Set `GROQ_API_KEY` in the Vercel project's environment variables (a free key from console.groq.com) and redeploy. `GROQ_MODEL` is optional and overrides the default open-weight model. Without the key the site works as before, retrieval only. The private phone number in `data.ts` is never part of the corpus, so it cannot reach the model; a test checks this.
+
 ## Run
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
+npm test         # corpus checks, answer parser, retrieval evals
 npm run build    # type-check + production build to dist/
 ```
 

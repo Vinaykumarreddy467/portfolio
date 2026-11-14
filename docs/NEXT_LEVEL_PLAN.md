@@ -9,6 +9,13 @@ for them at the start of the phase that needs them, and never make them up.
 
 ---
 
+## Status
+
+- **Phase 0, done.** Vitest, CI workflow, README link. The phone number is still in `data.ts` (Vinay to decide); a test keeps it out of the corpus.
+- **Phase 1, built, waiting on the key.** `api/ask.ts`, `src/ask.ts`, wired into both ask boxes. The reply is fetched whole, checked, then played, not streamed token by token, so nothing unchecked is ever shown. Not done yet: tuning the voice on Vinay's writing samples, follow-up suggestions, read-aloud. Not tested against the real Groq API or on Vercel.
+- **Phase 2, done.** `src/golden.ts` (60 questions), `src/evals.ts`, score floors in the tests, live scorecard in `Evals.tsx`. Tuning moved hit@6 0.96 → 1.00, recall@6 0.94 → 0.98, MRR 0.81 → 0.90, honest misses 0.89 → 1.00. The search was tuned on these same questions, so add new ones before trusting the numbers further.
+- Phases 3 to 7: not started.
+
 ## 1. The goal
 
 Vinay Kumar Reddy is a Gen AI engineer in Bengaluru looking for Gen AI / AI Engineer roles. His
