@@ -24,7 +24,8 @@ export const GOLDEN: Golden[] = [
   { q: 'speech to text', want: ['pr-voice'] },
   { q: 'offline dictation', want: ['pr-voice'] },
   { q: 'whisper', want: ['pr-voice'] },
-  { q: 'snowflake', want: ['pr-quickbite'] },
+  { q: 'snowflake', want: ['pr-quickbite', 'wn-4'] },
+  { q: 'cortex workshop', want: ['wn-4', 'pr-quickbite'] },
   { q: 'root cause analysis dashboard', want: ['pr-quickbite'] },
   { q: 'why did refunds go up', want: ['pr-quickbite'] },
   // side projects

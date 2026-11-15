@@ -700,7 +700,9 @@ ul, ol { padding: 0; list-style: none; }
 .cstage .ccards[data-dense] .ccard { padding-block: 7px; }
 .cstage .ccards[data-dense] .ccard-body { display: flex; gap: 10px; align-items: baseline; }
 .cstage .ccards[data-dense] .ccard-title { flex: none; flex-wrap: nowrap; white-space: nowrap; font-size: 14px; }
-.cstage .ccards[data-dense] .ccard-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: 12.5px; }
+.cstage .ccards[data-dense] .ccard-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; font-size: 12.5px; }
+.cstage .ccards[data-dense] .ccard-chips { flex: 0 1 44%; flex-wrap: nowrap; margin-top: 0; min-width: 0; align-self: center; }
+.cstage .ccards[data-dense] .ccard-chips span { white-space: nowrap; }
 .ccard-chips span { font: 10px var(--f-mono); color: var(--c-fg-2); border: 1px solid var(--c-line-2); border-radius: 4px; padding: 2px 6px; }
 .ccard-side { font-size: 10px; color: var(--c-mute); padding-top: 3px; white-space: nowrap; display: inline-flex; gap: 4px; align-items: center; }
 .cscore { display: grid; grid-template-columns: 54px; gap: 3px; justify-items: end; }

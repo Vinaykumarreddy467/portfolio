@@ -364,10 +364,10 @@ export const CHAPTERS: Chapter[] = [
     nav: 'Proof',
     q: 'who has seen his work?',
     kinds: ['win', 'cert', 'room', 'writing'],
-    cards: ['wn-0', 'wn-1', 'wn-2', 'wn-3', 'g-certs', 'g-rooms', 'g-writing'],
+    cards: ['wn-0', 'wn-1', 'wn-2', 'wn-3', 'wn-4', 'g-certs', 'g-rooms', 'g-writing'],
     answer: [
       { b: 'Hackathon judges, workshop rooms and a lot of Bengaluru.' }, ' Two Beyond GenAI builds ', { cite: 'wn-0' }, { cite: 'wn-1' }, ', a mentor seat at the Neo4j Agentic AI workshop ', { cite: 'wn-2' },
-      ', an open-source contribution ', { cite: 'wn-3' }, ', eight certifications ', { cite: 'g-certs' }, ', ten community rooms ', { cite: 'g-rooms' }, ' and a habit of writing up what he learns ', { cite: 'g-writing' }, '.',
+      ', an open-source contribution ', { cite: 'wn-3' }, ', a Snowflake Cortex hands-on ', { cite: 'wn-4' }, ', eight certifications ', { cite: 'g-certs' }, ', ten community rooms ', { cite: 'g-rooms' }, ' and a habit of writing up what he learns ', { cite: 'g-writing' }, '.',
     ],
   },
   {
