@@ -1,7 +1,7 @@
 // The page below the hero is a small retrieval system over everything in data.ts: every fact is a
 // chunk, chunks sit in clusters on a map, and questions retrieve them. The search is real (BM25 plus
-// character-trigram vectors, fused with RRF) and runs in the browser. No LLM: answers to the guided
-// questions are written by hand from the same facts, and free questions get retrieval only.
+// character-trigram vectors, fused with RRF) and runs in the browser. Answers to the guided questions
+// are written by hand from the same facts. Free questions get retrieval here; ask.ts adds a model on top.
 
 import { ARCHIVE, JOURNEY, LOOP, METRICS, PROFILE, PROJECTS, PROOF, STACK } from './data';
 
@@ -177,11 +177,14 @@ const SYN: Record<string, string[]> = {
   certification: ['certified'],
   hackathon: ['hackathon'],
   mentor: ['mentor', 'volunteer', 'workshop'],
-  study: ['b.tech', 'college', 'cgpa'],
   education: ['b.tech', 'college', 'cgpa'],
   frontend: ['angular', 'react', 'html'],
   backend: ['spring', 'fastapi', 'flask'],
   database: ['postgresql', 'redis', 'pgvector', 'surrealdb', 'chromadb', 'mysql', 'neo4j'],
+  graph: ['neo4j', 'cypher', 'graphrag'],
+  limiter: ['rate', 'limiting', 'rate-limit'],
+  study: ['b.tech', 'college', 'cgpa'],
+  studied: ['b.tech', 'college', 'cgpa'],
 };
 
 const fold = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
@@ -200,16 +203,36 @@ const grams = (s: string) => {
   return v;
 };
 
-const docText = (c: Chunk) => [c.title, c.title, c.text, c.meta, c.tag, c.body, ...(c.notes ?? []), ...(c.stack ?? [])].filter(Boolean).join(' ');
+// A tool's text only lists the projects that use it. Indexing that would make every tool answer for
+// every project's name, so tools are indexed by their own name alone.
+const docText = (c: Chunk) =>
+  c.kind === 'tool' ? `${c.title} ${c.title}` : [c.title, c.title, c.text, c.meta, c.tag, c.body, ...(c.notes ?? []), ...(c.stack ?? [])].filter(Boolean).join(' ');
+const triText = (c: Chunk) => (c.kind === 'tool' ? c.title : `${c.title} ${c.text} ${(c.stack ?? []).join(' ')} ${c.meta ?? ''}`);
+const plain = (s: string) => fold(s).split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+/** Dice overlap of two words' letter pairs: 1 for the same word, near 1 for a typo. */
+const dice = (a: string, b: string) => {
+  const pairs = (w: string) => Array.from({ length: w.length - 1 }, (_, i) => w.slice(i, i + 2));
+  const pa = pairs(a);
+  const pb = pairs(b);
+  const left = [...pb];
+  let same = 0;
+  for (const x of pa) { const i = left.indexOf(x); if (i >= 0) { same += 1; left.splice(i, 1); } }
+  return (2 * same) / (pa.length + pb.length || 1);
+};
 const index = all.map((c) => {
   const toks = words(docText(c));
   const tf = new Map<string, number>();
   toks.forEach((t) => tf.set(t, (tf.get(t) ?? 0) + 1));
-  return { c, tf, len: toks.length, tri: grams(`${c.title} ${c.text} ${(c.stack ?? []).join(' ')} ${c.meta ?? ''}`) };
+  return { c, tf, len: toks.length, tri: grams(triText(c)), names: [...new Set(plain(triText(c)))] };
 });
 const avgLen = index.reduce((s, d) => s + d.len, 0) / index.length;
 const df = new Map<string, number>();
 index.forEach((d) => d.tf.forEach((_, t) => df.set(t, (df.get(t) ?? 0) + 1)));
+const vocab = [...new Set([...df.keys(), ...Object.keys(SYN)])].filter((v) => v.length > 4);
+
+const TRI_W = 0.35;
+const TRI_MIN = 0.02;
+const B = 0.4; // length normalisation: low, so a project's long write-up is not punished for being thorough
 
 export type Hit = { c: Chunk; bm25: number; tri: number; rrf: number };
 export type Result = { hits: Hit[]; ms: number; scanned: number };
@@ -217,8 +240,21 @@ export type Result = { hits: Hit[]; ms: number; scanned: number };
 export function search(q: string, k = 6): Result {
   const t0 = performance.now();
   const base = words(q);
-  const terms = [...new Set([...base, ...base.flatMap((t) => SYN[t] ?? [])].map(stem))];
+  // A word the corpus has never seen is probably a typo: swap in the closest word it does know.
+  const fixed = base.map((t) => {
+    if (df.has(t) || SYN[t] || t.length < 5) return t;
+    let best = t;
+    let score = 0.55;
+    for (const v of vocab) {
+      if (v[0] !== t[0] || v[1] !== t[1]) continue;
+      const d = dice(t, v);
+      if (d > score) { score = d; best = v; }
+    }
+    return best;
+  });
+  const terms = [...new Set([...fixed, ...fixed.flatMap((t) => SYN[t] ?? [])].map(stem))];
   const qv = grams(q);
+  const qw = plain(q).filter((w) => !STOP.has(w));
   const N = index.length;
   const scored = index.map((d) => {
     let bm = 0;
@@ -227,10 +263,13 @@ export function search(q: string, k = 6): Result {
       if (!f) continue;
       const n = df.get(t) ?? 0;
       const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5));
-      bm += (idf * f * 2.2) / (f + 1.2 * (0.25 + 0.75 * (d.len / avgLen))) * (base.includes(t) ? 1 : 0.5);
+      bm += (idf * f * 2.2) / (f + 1.2 * (1 - B + B * (d.len / avgLen))) * (fixed.includes(t) ? 1 : 0.5);
     }
     let tri = 0;
     qv.forEach((x, g) => (tri += x * (d.tri.get(g) ?? 0)));
+    // With no word in common, letter shapes alone only count for a likely typo: a word that starts
+    // the same way and shares most of its letters ("langgrph"), not one that merely rhymes ("blockchain").
+    if (!bm && !qw.some((w) => d.names.some((n) => n[0] === w[0] && n[1] === w[1] && dice(w, n) >= 0.7))) tri = 0;
     return { c: d.c, bm25: bm, tri, rrf: 0 };
   });
   const rankOf = (key: 'bm25' | 'tri') => {
@@ -241,7 +280,8 @@ export function search(q: string, k = 6): Result {
   };
   const rb = rankOf('bm25');
   const rt = rankOf('tri');
-  scored.forEach((h) => (h.rrf = (h.bm25 > 0 ? 1 / (60 + rb.get(h)!) : 0) + (h.tri > 0.12 ? 1 / (60 + rt.get(h)!) : 0)));
+  // Words lead and letter shapes break ties: the trigram ranking counts for less than the BM25 one.
+  scored.forEach((h) => (h.rrf = (h.bm25 > 0 ? 1 / (60 + rb.get(h)!) : 0) + (h.tri > TRI_MIN ? TRI_W / (60 + rt.get(h)!) : 0)));
   const hits = scored.filter((h) => h.rrf > 0 && (h.bm25 > 0 || h.tri > 0.22)).sort((a, b) => b.rrf - a.rrf).slice(0, k);
   return { hits, ms: performance.now() - t0, scanned: N };
 }
@@ -266,7 +306,7 @@ export const CHAPTERS: Chapter[] = [
     cards: ['p-me', 'p-mission', 'p-now', 'm-0', 'm-2', 'p-open'],
     answer: [
       { b: 'A Gen AI engineer in Bengaluru' }, ' ', { cite: 'p-me' }, ' who makes LLMs grounded, measurable and actually useful in production ', { cite: 'p-mission' },
-      '. Right now: Software Engineer Intern at Lifetrenz ', { cite: 'p-now' }, '. 48 original repos shipped ', { cite: 'm-0' },
+      '. Right now: Software Engineer Intern at Lifetrenz ', { cite: 'p-now' }, `. ${METRICS[0].value} original repos on GitHub `, { cite: 'm-0' },
       ', and 2,200+ Infosys.com pages made accessible along the way ', { cite: 'm-2' }, '. Open to Gen AI / AI Engineer roles ', { cite: 'p-open' }, '.',
     ],
   },
@@ -277,10 +317,11 @@ export const CHAPTERS: Chapter[] = [
     kinds: ['project'],
     cards: PROJECTS.map((p) => pr(p.id)),
     answer: [
-      { b: 'Seven systems, all built to answer from evidence.' }, ' Context Layer gives coding agents memory that survives model and platform switches ', { cite: pr('context-layer') },
+      { b: `${['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][PROJECTS.length] ?? PROJECTS.length} systems, each one built to show its evidence.` }, ' Context Layer gives coding agents memory that survives model and platform switches ', { cite: pr('context-layer') },
       '; the knowledge base answers only from retrieved, role-filtered rows ', { cite: pr('kbms') }, '; the Redis limiter holds a limit of 100 across two JVMs ', { cite: pr('redis') },
       '. Two hackathon builds fused retrievers ', { cite: pr('rag') }, ' and fanned out agents in parallel ', { cite: pr('travel') },
-      ', the task manager keeps LLM-written tests behind human approval ', { cite: pr('taskqa') }, ', and the research assistant reads many URLs as one document ', { cite: pr('research') }, '.',
+      ', the task manager keeps LLM-written tests behind human approval ', { cite: pr('taskqa') }, ', and the research assistant reads many URLs as one document ', { cite: pr('research') },
+      '. The newest two: offline dictation that benchmarks its own word error rate ', { cite: pr('voice') }, ' and a Snowflake dashboard that traces a refund spike to one release ', { cite: pr('quickbite') }, '.',
     ],
   },
   {
@@ -323,10 +364,10 @@ export const CHAPTERS: Chapter[] = [
     nav: 'Proof',
     q: 'who has seen his work?',
     kinds: ['win', 'cert', 'room', 'writing'],
-    cards: ['wn-0', 'wn-1', 'wn-2', 'wn-3', 'g-certs', 'g-rooms', 'g-writing'],
+    cards: ['wn-0', 'wn-1', 'wn-2', 'wn-3', 'wn-4', 'g-certs', 'g-rooms', 'g-writing'],
     answer: [
       { b: 'Hackathon judges, workshop rooms and a lot of Bengaluru.' }, ' Two Beyond GenAI builds ', { cite: 'wn-0' }, { cite: 'wn-1' }, ', a mentor seat at the Neo4j Agentic AI workshop ', { cite: 'wn-2' },
-      ', an open-source contribution ', { cite: 'wn-3' }, ', eight certifications ', { cite: 'g-certs' }, ', ten community rooms ', { cite: 'g-rooms' }, ' and a habit of writing up what he learns ', { cite: 'g-writing' }, '.',
+      ', an open-source contribution ', { cite: 'wn-3' }, ', a Snowflake Cortex hands-on ', { cite: 'wn-4' }, ', eight certifications ', { cite: 'g-certs' }, ', ten community rooms ', { cite: 'g-rooms' }, ' and a habit of writing up what he learns ', { cite: 'g-writing' }, '.',
     ],
   },
   {

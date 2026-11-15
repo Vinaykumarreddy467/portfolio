@@ -69,6 +69,8 @@ export const SOURCES: Source[] = [
   { id: 'rag', label: 'Enterprise_RAG_Assistant', url: `${GH}/Enterprise_RAG_Assistant` },
   { id: 'taskqa', label: 'task-manager', url: `${GH}/task-manager` },
   { id: 'research', label: 'Research-Assistant-With-Memory', url: `${GH}/Research-Assistant-With-Memory` },
+  { id: 'voice', label: 'voice-assistant', url: `${GH}/voice-assistant` },
+  { id: 'quickbite', label: 'quickbite-coo-dashboard', url: `${GH}/quickbite-coo-dashboard` },
   { id: 'profile', label: 'github.com/Vinaykumarreddy467', url: GH },
   { id: 'linkedin', label: 'LinkedIn: molakathala-vinay-kumar-reddy', url: 'https://www.linkedin.com/in/molakathala-vinay-kumar-reddy/' },
 ];
@@ -93,9 +95,9 @@ export const PROJECTS: Project[] = [
     n: '01',
     title: 'Context Layer',
     hook: 'AI work loses momentum when the conversation gets too long, the model changes, or you switch platforms.',
-    body: 'Persistent, model-agnostic project memory for AI coding agents. Structured handoffs in SurrealDB, full-text + vector + hybrid search (BM25 and vectors fused with RRF), token-budgeted context assembly and handoff lineage. Local bge-small embeddings, no API key. Ships adapters for Codex, OpenCode, GitHub Copilot, Cursor and Claude Desktop, plus a retrieval-evaluation harness reporting MRR, recall@k and hit rate.',
+    body: 'Persistent, model-agnostic project memory for AI coding agents. Structured handoffs and a ledger of settled decisions and dead ends in SurrealDB, full-text + vector + hybrid search (BM25 and vectors fused with RRF), token-budgeted context assembly and handoff lineage. Local bge-small embeddings, no API key. Ships adapters for Codex, OpenCode, GitHub Copilot, Cursor and Claude Desktop, plus a retrieval-evaluation harness reporting MRR, recall@k and hit rate.',
     stack: ['Python', 'MCP', 'SurrealDB', 'Hybrid search', 'fastembed', 'Retrieval evals'],
-    metric: { value: '17', label: 'MCP tools' },
+    metric: { value: '19', label: 'MCP tools' },
     url: `${GH}/Context_Layer`,
   },
   {
@@ -160,6 +162,27 @@ export const PROJECTS: Project[] = [
     metric: { value: '2', label: 'front ends' },
     url: `${GH}/Research-Assistant-With-Memory`,
   },
+  {
+    id: 'voice',
+    n: '08',
+    title: 'Voice Assistant',
+    hook: 'Speak, and your words are typed into whatever window has focus. Nothing leaves the machine.',
+    body: 'Offline, real-time dictation for the Linux desktop. Silero VAD cuts speech at pauses so each sentence is transcribed whole, by NVIDIA Parakeet (English) or faster-whisper (about 100 languages), on the CPU. It types through a virtual keyboard or the desktop portal on Wayland and X11, with a hotkey daemon, push-to-talk, voice commands, a personal vocabulary and optional cleanup by a local Ollama model. A built-in benchmark measures word error rate, speed and memory: Parakeet scored 2.9% on a laptop CPU, faster than real time. 58 tests and CI.',
+    stack: ['Python', 'Parakeet', 'faster-whisper', 'Silero VAD', 'Ollama', 'pytest'],
+    metric: { value: '2.9%', label: 'word error rate, laptop CPU' },
+    url: `${GH}/voice-assistant`,
+  },
+  {
+    id: 'quickbite',
+    n: '09',
+    title: 'QuickBite COO Dashboard',
+    tag: 'Snowflake · Cortex Code',
+    hook: 'Refunds jumped 40%. One page shows the COO why, and what it isn’t.',
+    body: 'A root-cause dashboard in Streamlit on Snowflake, built from Snowflake’s Cortex Code hands-on workshop, over its food-delivery dataset. It walks from the headline numbers down to the cause: one rider-assignment release that pulled riders from about 6 km away in a single Bengaluru zone, which explains 78% of the increase. It tests and rules out a launch that happened the same week, then backs the finding with customer support chats classified and summarised in SQL by Snowflake Cortex AI (AI_CLASSIFY, AI_SUMMARIZE_AGG), run once as a batch so the page never re-runs a model. Aggregation is pushed down to the warehouse, queries are parameterised and results are cached.',
+    stack: ['Snowflake', 'Cortex AI', 'Streamlit', 'Altair', 'pandas', 'SQL'],
+    metric: { value: '78%', label: 'of the spike traced to one zone' },
+    url: `${GH}/quickbite-coo-dashboard`,
+  },
 ];
 
 export type ArchiveItem = { name: string; what: string; stack: string; kind: 'AI' | 'Java' | 'Web' | 'ML'; url: string; live?: string };
@@ -181,6 +204,7 @@ export const ARCHIVE: ArchiveItem[] = [
   { name: 'SympAI', what: 'Symptom-based disease prediction at 85% accuracy + nearby hospitals', stack: 'Flask, scikit-learn', kind: 'ML', url: `${GH}/Sympai`, live: 'https://sym-ai-v8.vercel.app' },
   { name: 'Music Recommendation System', what: 'NLP query analysis + knowledge-graph recommendations', stack: 'Python, NLTK', kind: 'ML', url: `${GH}/Music-Recommendation-System` },
   { name: 'Weather Analysis', what: 'Cleaning, correlation analysis and visualisation of weather data', stack: 'Pandas, Matplotlib', kind: 'ML', url: `${GH}/Weather_analysis` },
+  { name: 'Scale Blueprint', what: 'System design course you watch run: 29 topics, 19 live simulations, 10 case studies', stack: 'HTML, CSS, JavaScript', kind: 'Web', url: `${GH}/scale-blueprint-lab` },
   { name: 'E-commerce Storefront', what: 'Deployed storefront front end', stack: 'JavaScript', kind: 'Web', url: `${GH}/E-commerce`, live: 'https://e-commerce-smoky-delta-84.vercel.app' },
   { name: 'Coffee Shop Admin', what: 'Back-end admin for a coffee shop’s products', stack: 'Flask, SQLAlchemy', kind: 'Web', url: `${GH}/coffee` },
 ];
@@ -251,10 +275,10 @@ export const JOURNEY: Commit[] = [
 ];
 
 export const METRICS = [
-  { value: 48, suffix: '', label: 'original repos shipped', src: 'profile' },
+  { value: 56, suffix: '', label: 'original repos on GitHub', src: 'profile' },
   { value: 237, suffix: '', label: 'green tests on one rate-limiter', src: 'redis' },
   { value: 2200, suffix: '+', label: 'Infosys.com pages made accessible', src: 'profile' },
-  { value: 17, suffix: '', label: 'MCP tools in Context Layer', src: 'context-layer' },
+  { value: 19, suffix: '', label: 'MCP tools in Context Layer', src: 'context-layer' },
   { value: 6, suffix: '', label: 'atomic Redis rate-limit algorithms', src: 'redis' },
   { value: 39, suffix: '', label: 'LinkedIn write-ups, learning in public', src: 'linkedin' },
 ];
@@ -277,6 +301,7 @@ export const PROOF = {
     { title: 'Beyond GenAI hackathon · Part 2', text: 'Shipped the AI Travel Assistant, then helped run the event.', src: 'travel' },
     { title: 'Neo4j Agentic AI Workshop', text: 'Volunteer mentor for Cypher and GraphRAG.', src: 'profile' },
     { title: 'Open Source Connect India 2026', text: 'Contributor.', src: 'profile' },
+    { title: 'Snowflake Cortex Code Hands-on', text: 'Hands-on workshop by Snowflake, 31 October 2026. The QuickBite COO Dashboard came out of it.', src: 'quickbite' },
   ],
   certs: [
     { title: 'Neo4j Certified Professional', by: 'Neo4j', note: 'Cleared at 3 AM, taught Cypher at the workshop that same day.' },
